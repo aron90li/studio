@@ -75,7 +75,7 @@ public interface ProjectMapper {
             </foreach>
             </script>
             """)
-    int deleteProjectUser(@Param("projectIds") List<Long> projectIds);
+    int deleteProjectUserByProjectIds(@Param("projectIds") List<Long> projectIds);
 
     @Insert("""
                 INSERT INTO project_user (project_id, user_id, project_role, create_user)

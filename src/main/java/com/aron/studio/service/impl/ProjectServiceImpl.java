@@ -114,7 +114,7 @@ public class ProjectServiceImpl implements ProjectService {
     public int deleteProjects(List<String> projectIds) {
         List<Long> projectIdList = projectIds.stream().map(Long::valueOf).collect(Collectors.toUnmodifiableList());
         int cnt = projectMapper.deleteProjects(projectIdList);
-        projectMapper.deleteProjectUser(projectIdList);
+        projectMapper.deleteProjectUserByProjectIds(projectIdList);
         return cnt;
     }
 
