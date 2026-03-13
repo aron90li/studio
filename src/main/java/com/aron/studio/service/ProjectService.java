@@ -1,0 +1,24 @@
+package com.aron.studio.service;
+
+import com.aron.studio.data.dto.project.CreateProjectDTO;
+import com.aron.studio.data.dto.project.UpdateProjectDTO;
+import com.aron.studio.data.vo.ProjectVO;
+import com.aron.studio.data.vo.UserVO;
+
+import java.util.List;
+
+public interface ProjectService {
+    String createProject(CreateProjectDTO createProjectDTO);
+
+    List<ProjectVO> getProject();
+
+    int updateProject(UpdateProjectDTO updateProjectDTO);
+
+    int deleteProjects(List<String> projectIds);
+
+    int grantProjectToUser(String projectId, String userId);
+
+    int deleteProjectUser(String projectId, String userId);
+
+    List<UserVO> getProjectUsers(String projectId);
+}

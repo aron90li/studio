@@ -1,0 +1,25 @@
+server:
+  port: 8001
+spring:
+  application:
+    name: studio
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://192.168.137.200:3306/studio?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&useSSL=false&zeroDateTimeBehavior=convertToNull&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456
+  data:
+    redis:
+      host: 192.168.137.200
+      port: 6379
+jwt:
+  secret: "D4fbQ4Pv1l9O0ajIZTQLCqckWKdPGctMPG90/jtcOR0="
+  expire: 864000000   # 24小时（毫秒）
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true # 开启驼峰-下划线自动转换
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl # 可选：开启SQL日志，方便调试
+logging:
+  level:
+    root: info
