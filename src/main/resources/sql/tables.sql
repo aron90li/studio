@@ -11,9 +11,11 @@ CREATE TABLE if not exists user
     description VARCHAR(255) COMMENT '用户描述',
     create_user BIGINT COMMENT '创建用户',
     update_user BIGINT COMMENT '修改用户',
-    create_time DATETIME                     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    update_time DATETIME                     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间'
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间'
 ) COMMENT '用户表';
+
+-- 用户详情表 user_detail
 
 -- 项目表
 CREATE TABLE if not exists project
@@ -26,9 +28,23 @@ CREATE TABLE if not exists project
     description      VARCHAR(255) COMMENT '项目描述',
     create_user      BIGINT COMMENT '创建用户',
     update_user      BIGINT COMMENT '修改用户',
-    create_time      DATETIME               DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    update_time      DATETIME               DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间'
+    create_time      DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间'
 ) COMMENT '项目表';
+
+-- 项目详情表
+CREATE TABLE if not exists project_detail
+(
+    id               BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键,技术主键,不参与业务',
+    project_id       BIGINT  NOT NULL COMMENT '项目id',
+    detail_type      VARCHAR(255)  NOT NULL COMMENT '详情类型，枚举值:sql_params',
+    detail_value     LONGTEXT COMMENT '详情值',
+    create_user      BIGINT COMMENT '创建用户',
+    update_user      BIGINT COMMENT '修改用户',
+    create_time      DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+    UNIQUE (project_id, detail_type)
+) COMMENT '项目详情表';
 
 -- 项目授权表，项目成员表
 CREATE TABLE if not exists project_user

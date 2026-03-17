@@ -4,8 +4,10 @@ import com.aron.studio.data.dao.UpdateTaskDAO;
 import com.aron.studio.data.dto.task.UpdateTaskDTO;
 import com.aron.studio.data.dto.tree.CreateTreeNodeDTO;
 import com.aron.studio.data.dto.tree.DeleteTreeNodeDTO;
+import com.aron.studio.data.vo.ProjectDetailVO;
 import com.aron.studio.data.vo.TaskVO;
 import com.aron.studio.data.vo.TreeNodeVO;
+import com.aron.studio.mapper.ProjectMapper;
 import com.aron.studio.mapper.TaskMapper;
 import com.aron.studio.service.TaskService;
 import com.aron.studio.util.CurrentUserUtil;
@@ -16,6 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -25,6 +29,9 @@ public class TaskServiceImpl implements TaskService {
 
     @Autowired
     private TaskMapper taskMapper;
+
+    @Autowired
+    private ProjectMapper projectMapper;
 
     @Autowired
     private SnowflakeIdGenerator snowflakeIdGenerator;
@@ -62,7 +69,18 @@ public class TaskServiceImpl implements TaskService {
 
             Long taskId = snowflakeIdGenerator.nextId();
             int cnt = taskMapper.insertTreeNode(nodeId, projectId, nodeName, "task", parentNodeId, taskId, currentUserId);
-            int taskCnt = taskMapper.insertTask(projectId, taskId, nodeName, currentUserId);
+
+            // 项目下的环境参数模板
+            String taskParam = null;
+            List<ProjectDetailVO> pdList = projectMapper.getProjectDetail(projectId, "env_template");
+            if (pdList != null && pdList.size() > 0) {
+                taskParam = pdList.get(1).getDetailValue();
+            }
+
+            // sql前缀
+            String taskSql = String.format("-- createUser: %s\n-- createTime: %s", currentUserUtil.getCurrentUsername().get(),
+                    new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+            int taskCnt = taskMapper.insertTask(projectId, taskId, nodeName, currentUserId, taskParam, taskSql);
 
             return Map.of("nodeId", nodeId.toString(), "taskId", taskId.toString());
         } else {

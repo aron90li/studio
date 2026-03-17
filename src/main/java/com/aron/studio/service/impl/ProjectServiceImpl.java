@@ -1,10 +1,11 @@
 package com.aron.studio.service.impl;
 
 import com.aron.studio.data.dao.UpdateProjectDAO;
-import com.aron.studio.data.dto.project.CreateProjectDTO;
-import com.aron.studio.data.dto.project.UpdateProjectDTO;
+import com.aron.studio.data.dto.project.*;
 import com.aron.studio.data.enums.RoleEnum;
+import com.aron.studio.data.rbac.entity.ProjectDetailEntity;
 import com.aron.studio.data.rbac.entity.ProjectEntity;
+import com.aron.studio.data.vo.ProjectDetailVO;
 import com.aron.studio.data.vo.ProjectVO;
 import com.aron.studio.data.vo.UserVO;
 import com.aron.studio.mapper.ProjectMapper;
@@ -52,7 +53,7 @@ public class ProjectServiceImpl implements ProjectService {
         }
 
         // 0 不能重名
-        if(projectMapper.getCountByProjectName(createProjectDTO.getProjectName()) > 0) {
+        if (projectMapper.getCountByProjectName(createProjectDTO.getProjectName()) > 0) {
             throw new RuntimeException("已存在同名的项目");
         }
         // 1 插入项目表
@@ -95,7 +96,7 @@ public class ProjectServiceImpl implements ProjectService {
     public int updateProject(UpdateProjectDTO updateProjectDTO) {
         Long currentUserId = currentUserUtil.getCurrentUserId().get();
 
-        if(projectMapper.getCountByProjectName(updateProjectDTO.getProjectName()) > 0) {
+        if (projectMapper.getCountByProjectName(updateProjectDTO.getProjectName()) > 0) {
             throw new RuntimeException("已存在同名的项目");
         }
 
@@ -141,6 +142,88 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     public List<UserVO> getProjectUsers(String projectId) {
         return projectMapper.getProjectUsers(Long.valueOf(projectId));
+    }
+
+    @Override
+    public int createProjectDetail(CreateProjectDetailDTO createProjectDetailDTO) {
+        Long currentUserId = currentUserUtil.getCurrentUserId().get();
+        if (!StringUtils.hasText(createProjectDetailDTO.getProjectId()) ||
+                !StringUtils.hasText(createProjectDetailDTO.getDetailType())) {
+            throw new IllegalArgumentException("projectId/detailType is required");
+        }
+
+        Long projectId = Long.valueOf(createProjectDetailDTO.getProjectId());
+        if (projectMapper.getCountByProjectDetail(projectId, createProjectDetailDTO.getDetailType()) > 0) {
+            throw new RuntimeException("project detail already exists");
+        }
+
+        ProjectDetailEntity projectDetailEntity = new ProjectDetailEntity();
+        projectDetailEntity.setProjectId(projectId);
+        projectDetailEntity.setDetailType(createProjectDetailDTO.getDetailType());
+        projectDetailEntity.setDetailValue(createProjectDetailDTO.getDetailValue());
+        projectDetailEntity.setCreateUser(currentUserId);
+        projectDetailEntity.setUpdateUser(currentUserId);
+
+        return projectMapper.insertProjectDetail(projectDetailEntity);
+    }
+
+    @Override
+    public int updateProjectDetail(UpdateProjectDetailDTO updateProjectDetailDTO) {
+        Long currentUserId = currentUserUtil.getCurrentUserId().get();
+        if (!StringUtils.hasText(updateProjectDetailDTO.getProjectId()) ||
+                !StringUtils.hasText(updateProjectDetailDTO.getDetailType())) {
+            throw new IllegalArgumentException("projectId/detailType is required");
+        }
+
+        return projectMapper.updateProjectDetail(Long.valueOf(updateProjectDetailDTO.getProjectId()),
+                updateProjectDetailDTO.getDetailType(),
+                updateProjectDetailDTO.getDetailValue(),
+                currentUserId);
+    }
+
+    @Override
+    public int deleteProjectDetail(DeleteProjectDetailDTO deleteProjectDetailDTO) {
+        if (!StringUtils.hasText(deleteProjectDetailDTO.getProjectId()) ||
+                !StringUtils.hasText(deleteProjectDetailDTO.getDetailType())) {
+            throw new IllegalArgumentException("projectId/detailType is required");
+        }
+
+        return projectMapper.deleteProjectDetail(Long.valueOf(deleteProjectDetailDTO.getProjectId()),
+                deleteProjectDetailDTO.getDetailType());
+    }
+
+    @Override
+    public List<ProjectDetailVO> getProjectDetail(String projectId, String detailType) {
+        if (!StringUtils.hasText(projectId)) {
+            throw new IllegalArgumentException("projectId is required");
+        }
+        return projectMapper.getProjectDetail(Long.valueOf(projectId), detailType);
+    }
+
+    @Override
+    public int createOrUpdateProjectDetail(UpdateProjectDetailDTO updateProjectDetailDTO) {
+        Long currentUserId = currentUserUtil.getCurrentUserId().get();
+        if (!StringUtils.hasText(updateProjectDetailDTO.getProjectId()) ||
+                !StringUtils.hasText(updateProjectDetailDTO.getDetailType())) {
+            throw new IllegalArgumentException("projectId/detailType is required");
+        }
+
+        Long projectId = Long.valueOf(updateProjectDetailDTO.getProjectId());
+        if (projectMapper.getCountByProjectDetail(projectId, updateProjectDetailDTO.getDetailType()) > 0) {
+            return projectMapper.updateProjectDetail(projectId,
+                    updateProjectDetailDTO.getDetailType(),
+                    updateProjectDetailDTO.getDetailValue(),
+                    currentUserId);
+        }
+
+        ProjectDetailEntity projectDetailEntity = new ProjectDetailEntity();
+        projectDetailEntity.setProjectId(projectId);
+        projectDetailEntity.setDetailType(updateProjectDetailDTO.getDetailType());
+        projectDetailEntity.setDetailValue(updateProjectDetailDTO.getDetailValue());
+        projectDetailEntity.setCreateUser(currentUserId);
+        projectDetailEntity.setUpdateUser(currentUserId);
+
+        return projectMapper.insertProjectDetail(projectDetailEntity);
     }
 
 }

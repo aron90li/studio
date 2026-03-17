@@ -1,7 +1,9 @@
 package com.aron.studio.mapper;
 
 import com.aron.studio.data.dao.UpdateProjectDAO;
+import com.aron.studio.data.rbac.entity.ProjectDetailEntity;
 import com.aron.studio.data.rbac.entity.ProjectEntity;
+import com.aron.studio.data.vo.ProjectDetailVO;
 import com.aron.studio.data.vo.ProjectVO;
 import com.aron.studio.data.vo.UserVO;
 import org.apache.ibatis.annotations.*;
@@ -103,5 +105,57 @@ public interface ProjectMapper {
             """)
     int deleteProjectUser(@Param("projectId") Long projectId, @Param("userId") Long userId);
 
+    @Select("""
+                select count(*) from project_detail
+                where project_id = #{projectId} and detail_type = #{detailType}
+            """)
+    int getCountByProjectDetail(@Param("projectId") Long projectId, @Param("detailType") String detailType);
+
+    @Insert("""
+                INSERT INTO project_detail (project_id, detail_type, detail_value,
+                                            create_user, update_user)
+                VALUES (#{projectId}, #{detailType}, #{detailValue},
+                        #{createUser}, #{updateUser})
+            """)
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insertProjectDetail(ProjectDetailEntity projectDetailEntity);
+
+    @Update("""
+                update project_detail set detail_value = #{detailValue}, update_user = #{updateUser}
+                where project_id = #{projectId} and detail_type = #{detailType}
+            """)
+    int updateProjectDetail(@Param("projectId") Long projectId, @Param("detailType") String detailType,
+                            @Param("detailValue") String detailValue, @Param("updateUser") Long updateUser);
+
+    @Delete("""
+                delete from project_detail where project_id = #{projectId} and detail_type = #{detailType}
+            """)
+    int deleteProjectDetail(@Param("projectId") Long projectId, @Param("detailType") String detailType);
+
+    @Select("""
+            <script>
+            SELECT
+                    pd.project_id   AS projectId,
+                    pd.detail_type  AS detailType,
+                    pd.detail_value AS detailValue,
+                    pd.create_time  AS createTime,
+                    pd.update_time  AS updateTime,
+                    cu.username     AS createUsername,
+                    cu.user_id      AS createUserId,
+                    uu.username     AS updateUsername,
+                    uu.user_id      AS updateUserId
+            FROM project_detail pd
+            LEFT JOIN user cu
+                ON pd.create_user = cu.user_id
+            LEFT JOIN user uu
+                ON pd.update_user = uu.user_id
+            WHERE pd.project_id = #{projectId}
+            <if test="detailType != null and detailType != ''">
+                AND pd.detail_type = #{detailType}
+            </if>
+            ORDER BY pd.create_time DESC
+            </script>
+            """)
+    List<ProjectDetailVO> getProjectDetail(@Param("projectId") Long projectId, @Param("detailType") String detailType);
 
 }

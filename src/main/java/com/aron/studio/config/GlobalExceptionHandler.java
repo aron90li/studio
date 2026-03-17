@@ -23,7 +23,6 @@ public class GlobalExceptionHandler {
     // 这里写一般业务异常处理 ----------------------------------------------------------------------------------------------
 
 
-
     // 兜底异常处理 ------------------------------------------------------------------------------------------------------
     @ExceptionHandler(Exception.class)
     public Response<?> handleException(Exception e, HttpServletRequest request) {

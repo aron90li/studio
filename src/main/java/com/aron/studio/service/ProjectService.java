@@ -1,7 +1,7 @@
 package com.aron.studio.service;
 
-import com.aron.studio.data.dto.project.CreateProjectDTO;
-import com.aron.studio.data.dto.project.UpdateProjectDTO;
+import com.aron.studio.data.dto.project.*;
+import com.aron.studio.data.vo.ProjectDetailVO;
 import com.aron.studio.data.vo.ProjectVO;
 import com.aron.studio.data.vo.UserVO;
 
@@ -21,4 +21,14 @@ public interface ProjectService {
     int deleteProjectUser(String projectId, String userId);
 
     List<UserVO> getProjectUsers(String projectId);
+
+    int createProjectDetail(CreateProjectDetailDTO createProjectDetailDTO);
+
+    int updateProjectDetail(UpdateProjectDetailDTO updateProjectDetailDTO);
+
+    int deleteProjectDetail(DeleteProjectDetailDTO deleteProjectDetailDTO);
+
+    List<ProjectDetailVO> getProjectDetail(String projectId, String detailType);
+
+    int createOrUpdateProjectDetail(UpdateProjectDetailDTO updateProjectDetailDTO);
 }

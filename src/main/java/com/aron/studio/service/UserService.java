@@ -1,6 +1,5 @@
 package com.aron.studio.service;
 
-import com.aron.studio.data.rbac.entity.UserEntity;
 import com.aron.studio.data.vo.UserVO;
 import org.springframework.security.core.userdetails.UserDetailsService;
 

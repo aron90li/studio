@@ -2,6 +2,7 @@ package com.aron.studio.controller;
 
 import com.aron.studio.data.Response;
 import com.aron.studio.data.dto.project.*;
+import com.aron.studio.data.vo.ProjectDetailVO;
 import com.aron.studio.data.vo.ProjectVO;
 import com.aron.studio.data.vo.UserVO;
 import com.aron.studio.service.ProjectService;
@@ -139,6 +140,65 @@ public class ProjectController {
             return Response.success(projectVOList);
         } catch (Exception e) {
             log.error("call getProject error: ", e);
+            return Response.fail(e.getMessage());
+        }
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PostMapping("/createProjectDetail")
+    public Response<Integer> createProjectDetail(@RequestBody CreateProjectDetailDTO createProjectDetailDTO) {
+        try {
+            log.info("call createProjectDetail, params: {}", createProjectDetailDTO);
+            return Response.success(projectService.createProjectDetail(createProjectDetailDTO));
+        } catch (Exception e) {
+            log.error("call createProjectDetail error: ", e);
+            return Response.fail(e.getMessage());
+        }
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PostMapping("/updateProjectDetail")
+    public Response<Integer> updateProjectDetail(@RequestBody UpdateProjectDetailDTO updateProjectDetailDTO) {
+        try {
+            log.info("call updateProjectDetail, params: {}", updateProjectDetailDTO);
+            return Response.success(projectService.updateProjectDetail(updateProjectDetailDTO));
+        } catch (Exception e) {
+            log.error("call updateProjectDetail error: ", e);
+            return Response.fail(e.getMessage());
+        }
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PostMapping("/deleteProjectDetail")
+    public Response<Integer> deleteProjectDetail(@RequestBody DeleteProjectDetailDTO deleteProjectDetailDTO) {
+        try {
+            log.info("call deleteProjectDetail, params: {}", deleteProjectDetailDTO);
+            return Response.success(projectService.deleteProjectDetail(deleteProjectDetailDTO));
+        } catch (Exception e) {
+            log.error("call deleteProjectDetail error: ", e);
+            return Response.fail(e.getMessage());
+        }
+    }
+
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    @PostMapping("/createOrUpdateProjectDetail")
+    public Response<Integer> createOrUpdateProjectDetail(@RequestBody UpdateProjectDetailDTO updateProjectDetailDTO) {
+        try {
+            log.info("call createOrUpdateProjectDetail, params: {}", updateProjectDetailDTO);
+            return Response.success(projectService.createOrUpdateProjectDetail(updateProjectDetailDTO));
+        } catch (Exception e) {
+            log.error("call createOrUpdateProjectDetail error: ", e);
+            return Response.fail(e.getMessage());
+        }
+    }
+
+    @GetMapping("/getProjectDetail")
+    public Response<List<ProjectDetailVO>> getProjectDetail(@RequestParam("projectId") String projectId,
+                                                            @RequestParam(value = "detailType", required = false) String detailType) {
+        try {
+            return Response.success(projectService.getProjectDetail(projectId, detailType));
+        } catch (Exception e) {
+            log.error("call getProjectDetail error: ", e);
             return Response.fail(e.getMessage());
         }
     }

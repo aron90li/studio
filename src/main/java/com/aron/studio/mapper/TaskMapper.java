@@ -77,11 +77,12 @@ public interface TaskMapper {
 
     // 插入 task 表
     @Insert("""
-             insert into task (project_id, task_id, task_name, create_user) values 
-             (#{projectId}, #{taskId}, #{taskName}, #{createUser})
+             insert into task (project_id, task_id, task_name, create_user, task_param, task_sql) values 
+             (#{projectId}, #{taskId}, #{taskName}, #{createUser}, #{taskParam}, #{taskSql})
             """)
     int insertTask(@Param("projectId") Long projectId, @Param("taskId") Long taskId,
-                   @Param("taskName") String taskName, @Param("createUser") Long createUser);
+                   @Param("taskName") String taskName, @Param("createUser") Long createUser,
+                   @Param("taskParam") String taskParam, @Param("taskSql") String taskSql);
 
     // 更新 task 表 , 返回 0 说明该版本已经更新过了，业务端要处理这种现象
     // 这个方法 每次修改都增加版本号，后续要优化成特定字段的改变才增加版本号，需要service层协同处理
