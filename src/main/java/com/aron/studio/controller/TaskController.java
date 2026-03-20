@@ -64,7 +64,7 @@ public class TaskController {
      */
     @PostMapping("/updateTask")
     public Response<TaskVO> updateTask(@RequestBody UpdateTaskDTO updateTaskDTO) {
-        log.info("call updateTask, param: {}", updateTaskDTO);
+        // log.info("call updateTask, param: {}", updateTaskDTO);
         return Response.success(taskService.updateTask(updateTaskDTO));
     }
 

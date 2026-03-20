@@ -30,7 +30,7 @@ public class ClusterServiceImpl implements ClusterService {
 
     @Override
     public String createCluster(CreateClusterDTO createClusterDTO) {
-        if (clusterMapper.getCountByClusterName(createClusterDTO.getClusterName()) > 0) {
+        if (clusterMapper.getCountByClusterNameCreate(createClusterDTO.getClusterName()) > 0) {
             throw new RuntimeException("集群名称已存在");
         }
 
@@ -56,7 +56,8 @@ public class ClusterServiceImpl implements ClusterService {
     @Override
     public int updateCluster(UpdateClusterDTO updateClusterDTO) {
         Long currentUserId = currentUserUtil.getCurrentUserId().orElseThrow(() -> new SecurityException("未登录"));
-        if (clusterMapper.getCountByClusterName(updateClusterDTO.getClusterName()) > 0) {
+        if (clusterMapper.getCountByClusterNameUpdate(updateClusterDTO.getClusterName(),
+                Long.valueOf(updateClusterDTO.getClusterId())) > 0) {
             throw new RuntimeException("集群名称已存在");
         }
 

@@ -11,9 +11,14 @@ import java.util.List;
 public interface ClusterMapper {
 
     @Select("""
+                select count(*) from cluster where cluster_name = #{clusterName} and deleted = 0 and cluster_id != #{clusterId}
+            """)
+    int getCountByClusterNameUpdate(@Param("clusterName") String clusterName, @Param("clusterId") Long clusterId);
+
+    @Select("""
                 select count(*) from cluster where cluster_name = #{clusterName} and deleted = 0
             """)
-    int getCountByClusterName(@Param("clusterName") String clusterName);
+    int getCountByClusterNameCreate(@Param("clusterName") String clusterName);
 
     @Insert("""
                 INSERT INTO cluster (cluster_id, cluster_name, description, cluster_type,
