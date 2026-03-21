@@ -5,6 +5,7 @@ import com.aron.studio.data.vo.TaskVO;
 import com.aron.studio.data.vo.TreeNodeVO;
 import org.apache.ibatis.annotations.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -120,12 +121,13 @@ public interface TaskMapper {
                 <if test="dao.publishStatus != null">
                     publish_status = #{dao.publishStatus},
                 </if>
-                task_version = task_version + 1, update_user = #{updateUser}
+                task_version = task_version + 1, update_user = #{updateUser}, update_time = #{updateTime}
             </set>
             WHERE task_id = #{dao.taskId} AND project_id = #{dao.projectId} and task_version = #{dao.taskVersion}
             </script>
             """)
-    int updateTask(@Param("dao") UpdateTaskDAO dao, @Param("updateUser") Long updateUser);
+    int updateTask(@Param("dao") UpdateTaskDAO dao, @Param("updateUser") Long updateUser,
+                   @Param("updateTime") LocalDateTime updateTime);
 
     @Update("""
             <script>
@@ -161,12 +163,13 @@ public interface TaskMapper {
                 <if test="dao.publishStatus != null">
                     publish_status = #{dao.publishStatus},
                 </if>
-                update_user = #{updateUser}
+                update_user = #{updateUser}, update_time = #{updateTime}
             </set>
             WHERE task_id = #{dao.taskId} AND project_id = #{dao.projectId} and task_version = #{dao.taskVersion}
             </script>
             """)
-    int updateTaskWithoutVersion(@Param("dao") UpdateTaskDAO dao, @Param("updateUser") Long updateUser);
+    int updateTaskWithoutVersion(@Param("dao") UpdateTaskDAO dao, @Param("updateUser") Long updateUser,
+                                 @Param("updateTime") LocalDateTime updateTime);
 
     // 获取 task
     @Select("""
@@ -191,7 +194,7 @@ public interface TaskMapper {
     @Insert("""
              INSERT INTO task_version (
                    task_id, task_version, project_id, task_name, description, task_type, task_sql,
-                   task_param, task_source, task_side, task_sink, create_user, update_user 
+                   task_param, task_source, task_side, task_sink, create_user, update_user
                )
                SELECT
                    task_id, task_version, project_id, task_name, description, task_type, task_sql,

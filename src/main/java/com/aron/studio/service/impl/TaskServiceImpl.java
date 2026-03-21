@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -170,7 +171,7 @@ public class TaskServiceImpl implements TaskService {
         // 7 执行更新
         if (needNewVersion) {
             // 版本 +1 更新
-            rows = taskMapper.updateTask(dao, currentUserId);
+            rows = taskMapper.updateTask(dao, currentUserId, LocalDateTime.now());
             if (rows == 0) {
                 throw new RuntimeException("任务更新失败，可能存在并发冲突");
             }
@@ -181,7 +182,7 @@ public class TaskServiceImpl implements TaskService {
 
         } else {
             // 普通更新（不增加版本号）
-            rows = taskMapper.updateTaskWithoutVersion(dao, currentUserId);
+            rows = taskMapper.updateTaskWithoutVersion(dao, currentUserId, LocalDateTime.now());
             if (rows == 0) {
                 throw new RuntimeException("任务更新失败，可能存在并发冲突");
             }

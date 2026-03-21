@@ -3,7 +3,7 @@
 -- 原表名 'user' 是 Oracle 保留字，可改为 'sys_user'
 -- 主键变更为: user_id
 -- =============================================
-CREATE TABLE `user`
+CREATE TABLE sys_user
 (
     user_id     NUMBER(19,0) PRIMARY KEY,
     username    VARCHAR2(255) UNIQUE NOT NULL,
@@ -18,21 +18,21 @@ CREATE TABLE `user`
     update_time DATE                 DEFAULT SYSDATE
 );
 
-COMMENT ON TABLE `user` IS '用户表';
-COMMENT ON COLUMN `user`.user_id IS '业务 id,java 使用 Long,前端使用 String (现作为主键)';
-COMMENT ON COLUMN `user`.username IS '用户名，不能重复，类似微信 id';
-COMMENT ON COLUMN `user`.nickname IS '昵称';
-COMMENT ON COLUMN `user`.password IS '密码';
-COMMENT ON COLUMN `user`.enabled IS '启用标志';
-COMMENT ON COLUMN `user`.role IS '系统级用户角色，管理员-ROLE_ADMIN,普通用户-ROLE_USER';
-COMMENT ON COLUMN `user`.description IS '用户描述';
-COMMENT ON COLUMN `user`.create_user IS '创建用户';
-COMMENT ON COLUMN `user`.update_user IS '修改用户';
-COMMENT ON COLUMN `user`.create_time IS '创建时间';
-COMMENT ON COLUMN `user`.update_time IS '修改时间';
+COMMENT ON TABLE sys_user IS '用户表';
+COMMENT ON COLUMN sys_user.user_id IS '业务 id,java 使用 Long,前端使用 String (现作为主键)';
+COMMENT ON COLUMN sys_user.username IS '用户名，不能重复，类似微信 id';
+COMMENT ON COLUMN sys_user.nickname IS '昵称';
+COMMENT ON COLUMN sys_user.password IS '密码';
+COMMENT ON COLUMN sys_user.enabled IS '启用标志';
+COMMENT ON COLUMN sys_user.role IS '系统级用户角色，管理员-ROLE_ADMIN,普通用户-ROLE_USER';
+COMMENT ON COLUMN sys_user.description IS '用户描述';
+COMMENT ON COLUMN sys_user.create_user IS '创建用户';
+COMMENT ON COLUMN sys_user.update_user IS '修改用户';
+COMMENT ON COLUMN sys_user.create_time IS '创建时间';
+COMMENT ON COLUMN sys_user.update_time IS '修改时间';
 
 -- 插入 admin 用户 (id 列已移除，直接插入 user_id)
-INSERT INTO `user`(user_id, username, nickname, password, enabled, role, description)
+INSERT INTO sys_user(user_id, username, nickname, password, enabled, role, description)
 VALUES (1, 'admin', '管理员', '$2a$10$n7GshUuBhFhfoRk9u.GC/uXzSqu7M6DsoQtOkx0iBKFO7eZc6GiKq', 1, 'ROLE_ADMIN', '管理员');
 
 
@@ -250,7 +250,7 @@ COMMENT ON COLUMN task_version.update_time IS '修改时间';
 -- 主键变更为: cluster_id
 -- 移除了 id 列
 -- =============================================
-CREATE TABLE cluster
+CREATE TABLE sys_cluster
 (
     cluster_id     NUMBER(19,0) PRIMARY KEY,
     cluster_name   VARCHAR2(255) NOT NULL,
@@ -267,17 +267,19 @@ CREATE TABLE cluster
     update_time    DATE         DEFAULT SYSDATE
 );
 
-COMMENT ON TABLE cluster IS '集群定义表';
-COMMENT ON COLUMN cluster.cluster_id IS '集群 id (现作为主键)';
-COMMENT ON COLUMN cluster.cluster_name IS '集群名称，一般使用 namespace 命名';
-COMMENT ON COLUMN cluster.description IS '集群描述';
-COMMENT ON COLUMN cluster.cluster_type IS '集群类型';
-COMMENT ON COLUMN cluster.flink_version IS 'flink 任务版本';
-COMMENT ON COLUMN cluster.default_conf IS '集群的默认参数，优先级低于任务参数，支持 yaml 和 properties 两种，后台能够自动识别';
-COMMENT ON COLUMN cluster.pod_template IS 'pod 模板';
-COMMENT ON COLUMN cluster.kubeconfig IS 'k8s 的 kubeconfig 配置';
-COMMENT ON COLUMN cluster.deleted IS '是否删除';
-COMMENT ON COLUMN cluster.create_user IS '创建用户';
-COMMENT ON COLUMN cluster.update_user IS '修改用户';
-COMMENT ON COLUMN cluster.create_time IS '创建时间';
-COMMENT ON COLUMN cluster.update_time IS '修改时间';
+COMMENT ON TABLE sys_cluster IS '集群定义表';
+COMMENT ON COLUMN sys_cluster.cluster_id IS '集群 id (现作为主键)';
+COMMENT ON COLUMN sys_cluster.cluster_name IS '集群名称，一般使用 namespace 命名';
+COMMENT ON COLUMN sys_cluster.description IS '集群描述';
+COMMENT ON COLUMN sys_cluster.cluster_type IS '集群类型';
+COMMENT ON COLUMN sys_cluster.flink_version IS 'flink 任务版本';
+COMMENT ON COLUMN sys_cluster.default_conf IS '集群的默认参数，优先级低于任务参数，支持 yaml 和 properties 两种，后台能够自动识别';
+COMMENT ON COLUMN sys_cluster.pod_template IS 'pod 模板';
+COMMENT ON COLUMN sys_cluster.kubeconfig IS 'k8s 的 kubeconfig 配置';
+COMMENT ON COLUMN sys_cluster.deleted IS '是否删除';
+COMMENT ON COLUMN sys_cluster.create_user IS '创建用户';
+COMMENT ON COLUMN sys_cluster.update_user IS '修改用户';
+COMMENT ON COLUMN sys_cluster.create_time IS '创建时间';
+COMMENT ON COLUMN sys_cluster.update_time IS '修改时间';
+
+-- 因为要兼容oracle，后续建表的 update_time 字段一定要在程序中更新，不使用数据库的特性

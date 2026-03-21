@@ -1,5 +1,5 @@
 -- 用户表
-CREATE TABLE if not exists user
+CREATE TABLE if not exists sys_user
 (
     id          BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键,技术主键,不参与业务',
     user_id     BIGINT UNIQUE       NOT NULL COMMENT '业务id,java使用Long,前端使用String',
@@ -15,7 +15,7 @@ CREATE TABLE if not exists user
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间'
 ) COMMENT '用户表';
 -- 插入 admin用户，密码是admin
-insert into user(user_id, username, nickname, password, enabled, role, description)
+insert into sys_user(user_id, username, nickname, password, enabled, role, description)
 values (1, 'admin', '管理员', '$2a$10$n7GshUuBhFhfoRk9u.GC/uXzSqu7M6DsoQtOkx0iBKFO7eZc6GiKq',
         '1', 'ROLE_ADMIN', '管理员');
 -- 项目表
@@ -127,7 +127,7 @@ CREATE TABLE if not exists task_version
 ) COMMENT '任务表版本';
 
 -- 集群定义表
-CREATE TABLE if not exists cluster (
+CREATE TABLE if not exists sys_cluster (
     id             BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键,技术主键,不参与业务',
     cluster_id     BIGINT            UNIQUE NOT NULL       COMMENT '集群id',
     cluster_name   VARCHAR(255)       NOT NULL       COMMENT '集群名称, 一般使用namespace命名',
@@ -143,3 +143,5 @@ CREATE TABLE if not exists cluster (
     create_time    DATETIME                          DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time    DATETIME                          DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间'
 ) COMMENT '集群定义表';
+
+-- 因为要兼容oracle，后续建表的 update_time 字段一定要在程序中更新，不使用数据库的特性

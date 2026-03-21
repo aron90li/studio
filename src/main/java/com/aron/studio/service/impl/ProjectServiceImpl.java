@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -53,7 +54,7 @@ public class ProjectServiceImpl implements ProjectService {
         }
 
         // 0 不能重名
-        if (projectMapper.getCountByProjectName(createProjectDTO.getProjectName()) > 0) {
+        if (projectMapper.getCountByProjectNameCreate(createProjectDTO.getProjectName()) > 0) {
             throw new RuntimeException("已存在同名的项目");
         }
         // 1 插入项目表
@@ -96,7 +97,8 @@ public class ProjectServiceImpl implements ProjectService {
     public int updateProject(UpdateProjectDTO updateProjectDTO) {
         Long currentUserId = currentUserUtil.getCurrentUserId().get();
 
-        if (projectMapper.getCountByProjectName(updateProjectDTO.getProjectName()) > 0) {
+        if (projectMapper.getCountByProjectNameUpdate(updateProjectDTO.getProjectName(),
+                Long.valueOf(updateProjectDTO.getProjectId())) > 0) {
             throw new RuntimeException("已存在同名的项目");
         }
 
@@ -106,8 +108,7 @@ public class ProjectServiceImpl implements ProjectService {
         dao.setProjectIdentity(updateProjectDTO.getProjectIdentity());
         dao.setDescription(updateProjectDTO.getDescription());
 
-        return projectMapper.updateProject(dao, currentUserId);
-
+        return projectMapper.updateProject(dao, currentUserId, LocalDateTime.now());
     }
 
     @Override
@@ -178,7 +179,7 @@ public class ProjectServiceImpl implements ProjectService {
         return projectMapper.updateProjectDetail(Long.valueOf(updateProjectDetailDTO.getProjectId()),
                 updateProjectDetailDTO.getDetailType(),
                 updateProjectDetailDTO.getDetailValue(),
-                currentUserId);
+                currentUserId, LocalDateTime.now());
     }
 
     @Override
@@ -213,7 +214,7 @@ public class ProjectServiceImpl implements ProjectService {
             return projectMapper.updateProjectDetail(projectId,
                     updateProjectDetailDTO.getDetailType(),
                     updateProjectDetailDTO.getDetailValue(),
-                    currentUserId);
+                    currentUserId, LocalDateTime.now());
         }
 
         ProjectDetailEntity projectDetailEntity = new ProjectDetailEntity();

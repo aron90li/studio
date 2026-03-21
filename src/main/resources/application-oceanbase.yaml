@@ -1,0 +1,6 @@
+spring:
+  datasource:
+    driver-class-name: com.oceanbase.jdbc.Driver
+    url: jdbc:oceanbase://obot7lfuh8kxzbq8-mi.aliyun-cn-hangzhou-internet.oceanbase.cloud:1521/STUDIO?characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai&OB_ORCL_CHARSET=AL32UTF8
+    username: STUDIO
+    password: Long901025$

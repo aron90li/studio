@@ -5,23 +5,24 @@ import com.aron.studio.data.entity.ClusterEntity;
 import com.aron.studio.data.vo.ClusterVO;
 import org.apache.ibatis.annotations.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
 public interface ClusterMapper {
 
     @Select("""
-                select count(*) from cluster where cluster_name = #{clusterName} and deleted = 0 and cluster_id != #{clusterId}
+                select count(*) from sys_cluster where cluster_name = #{clusterName} and deleted = 0 and cluster_id != #{clusterId}
             """)
     int getCountByClusterNameUpdate(@Param("clusterName") String clusterName, @Param("clusterId") Long clusterId);
 
     @Select("""
-                select count(*) from cluster where cluster_name = #{clusterName} and deleted = 0
+                select count(*) from sys_cluster where cluster_name = #{clusterName} and deleted = 0
             """)
     int getCountByClusterNameCreate(@Param("clusterName") String clusterName);
 
     @Insert("""
-                INSERT INTO cluster (cluster_id, cluster_name, description, cluster_type,
+                INSERT INTO sys_cluster (cluster_id, cluster_name, description, cluster_type,
                                      flink_version, default_conf, pod_template, kubeconfig,
                                      deleted, create_user, update_user)
                 VALUES (#{clusterId}, #{clusterName}, #{description}, #{clusterType}, #{flinkVersion}, 
@@ -47,10 +48,10 @@ public interface ClusterMapper {
                     cu.user_id      AS createUserId,
                     uu.username     AS updateUsername,
                     uu.user_id      AS updateUserId
-                FROM cluster c
-                LEFT JOIN user cu
+                from sys_cluster c
+                LEFT JOIN sys_user cu
                     ON c.create_user = cu.user_id
-                LEFT JOIN user uu
+                LEFT JOIN sys_user uu
                     ON c.update_user = uu.user_id
                 WHERE c.deleted = 0
                 ORDER BY c.create_time DESC
@@ -59,7 +60,7 @@ public interface ClusterMapper {
 
     @Update("""
             <script>
-            UPDATE cluster
+            UPDATE sys_cluster
             <set>
                 <if test="dao.clusterName != null">
                     cluster_name = #{dao.clusterName},
@@ -82,16 +83,17 @@ public interface ClusterMapper {
                 <if test="dao.kubeconfig != null">
                     kubeconfig = #{dao.kubeconfig, jdbcType=CLOB},
                 </if>
-                update_user = #{currentUserId}
+                update_user = #{currentUserId}, update_time = #{updateTime}
             </set>
             WHERE cluster_id = #{dao.clusterId} AND deleted = 0
             </script>
             """)
-    int updateCluster(@Param("dao") UpdateClusterDAO dao, @Param("currentUserId") Long currentUserId);
+    int updateCluster(@Param("dao") UpdateClusterDAO dao, @Param("currentUserId") Long currentUserId,
+                      @Param("updateTime") LocalDateTime updateTime);
 
     @Update("""
             <script>
-            UPDATE cluster
+            UPDATE sys_cluster
             SET deleted = 1, update_user = #{currentUserId}
             WHERE deleted = 0 AND cluster_id IN
             <foreach collection="clusterIds" item="clusterId" open="(" separator="," close=")">
