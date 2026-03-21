@@ -12,4 +12,15 @@ public class PasswordConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
+    public static void main(String[] args) {
+        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+        // System.out.println(passwordEncoder.encode("admin"));
+
+        boolean match = passwordEncoder.matches("admin",
+                "$2a$10$n7GshUuBhFhfoRk9u.GC/uXzSqu7M6DsoQtOkx0iBKFO7eZc6GiKq");
+        System.out.println("match: " +  match);
+    }
 }
+
+

@@ -53,7 +53,7 @@ public interface TaskMapper {
                        node_type as nodeType,
                        parent_node_id as parentNodeId,
                        task_id as taskId
-                from tree_node where project_id = #{projectId} and node_id=#{nodeId} limit 1
+                from tree_node where project_id = #{projectId} and node_id=#{nodeId} 
             """)
     TreeNodeVO getTreeNodeByNodeId(@Param("projectId") Long projectId, @Param("nodeId") Long nodeId);
 
@@ -201,6 +201,13 @@ public interface TaskMapper {
                AND project_id = #{projectId}
             """)
     int insertTaskVersion(@Param("projectId") Long projectId, @Param("taskId") Long taskId);
+
+    @Delete("""
+                delete from task_version WHERE task_id = #{taskId} AND project_id = #{projectId} 
+                and task_version < #{deleteVersion}
+            """)
+    int deleteTaskVersion(@Param("projectId") Long projectId, @Param("taskId") Long taskId,
+                          @Param("deleteVersion") Integer deleteVersion);
 
 
 }

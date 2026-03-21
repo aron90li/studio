@@ -24,11 +24,11 @@ public interface ClusterMapper {
                 INSERT INTO cluster (cluster_id, cluster_name, description, cluster_type,
                                      flink_version, default_conf, pod_template, kubeconfig,
                                      deleted, create_user, update_user)
-                VALUES (#{clusterId}, #{clusterName}, #{description}, #{clusterType},
-                        #{flinkVersion}, #{defaultConf}, #{podTemplate}, #{kubeconfig},
+                VALUES (#{clusterId}, #{clusterName}, #{description}, #{clusterType}, #{flinkVersion}, 
+                #{defaultConf, jdbcType=CLOB}, #{podTemplate, jdbcType=CLOB}, #{kubeconfig, jdbcType=CLOB},
                         #{deleted}, #{createUser}, #{updateUser})
             """)
-    @Options(useGeneratedKeys = true, keyProperty = "id")
+    // @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertCluster(ClusterEntity clusterEntity);
 
     @Select("""
@@ -74,13 +74,13 @@ public interface ClusterMapper {
                     flink_version = #{dao.flinkVersion},
                 </if>
                 <if test="dao.defaultConf != null">
-                    default_conf = #{dao.defaultConf},
+                    default_conf = #{dao.defaultConf, jdbcType=CLOB},
                 </if>
                 <if test="dao.podTemplate != null">
-                    pod_template = #{dao.podTemplate},
+                    pod_template = #{dao.podTemplate, jdbcType=CLOB},
                 </if>
                 <if test="dao.kubeconfig != null">
-                    kubeconfig = #{dao.kubeconfig},
+                    kubeconfig = #{dao.kubeconfig, jdbcType=CLOB},
                 </if>
                 update_user = #{currentUserId}
             </set>

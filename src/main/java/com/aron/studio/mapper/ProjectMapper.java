@@ -24,7 +24,7 @@ public interface ProjectMapper {
                 VALUES (#{projectId}, #{projectName}, #{projectIdentity}, 
                         #{enabled}, #{description}, #{createUser}, #{updateUser})
             """)
-    @Options(useGeneratedKeys = true, keyProperty = "id")
+    // @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertProject(ProjectEntity userEntity);
 
 
@@ -117,7 +117,7 @@ public interface ProjectMapper {
                 VALUES (#{projectId}, #{detailType}, #{detailValue},
                         #{createUser}, #{updateUser})
             """)
-    @Options(useGeneratedKeys = true, keyProperty = "id")
+    // @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertProjectDetail(ProjectDetailEntity projectDetailEntity);
 
     @Update("""

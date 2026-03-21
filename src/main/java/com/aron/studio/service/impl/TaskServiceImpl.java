@@ -152,7 +152,7 @@ public class TaskServiceImpl implements TaskService {
 
         // 4 乐观锁前置校验（可选但推荐）
         if (!Objects.equals(oldTask.getTaskVersion(), taskVersion)) {
-            throw new RuntimeException("任务版本已变更，请刷新后重试");
+            throw new RuntimeException("任务版本已变更，你打开后别人已经修改保存，请复制你的修改以免丢失，然后关闭任务或者刷新后重试");
         }
 
         // 5 判断是否需要新增版本
@@ -176,6 +176,8 @@ public class TaskServiceImpl implements TaskService {
             }
             // 插入版本表（插入的是更新后的最新版本）
             taskMapper.insertTaskVersion(projectId, taskId);
+            // 删除过早的版本，最多保留50个版本
+            taskMapper.deleteTaskVersion(projectId, taskId, taskVersion - 50);
 
         } else {
             // 普通更新（不增加版本号）

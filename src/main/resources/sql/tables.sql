@@ -1,4 +1,4 @@
--- 用户表， 管理员用户需要注册后手动改 role
+-- 用户表
 CREATE TABLE if not exists user
 (
     id          BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键,技术主键,不参与业务',
@@ -14,9 +14,10 @@ CREATE TABLE if not exists user
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间'
 ) COMMENT '用户表';
-
--- 用户详情表 user_detail
-
+-- 插入 admin用户，密码是admin
+insert into user(user_id, username, nickname, password, enabled, role, description)
+values (1, 'admin', '管理员', '$2a$10$n7GshUuBhFhfoRk9u.GC/uXzSqu7M6DsoQtOkx0iBKFO7eZc6GiKq',
+        '1', 'ROLE_ADMIN', '管理员');
 -- 项目表
 CREATE TABLE if not exists project
 (
@@ -46,13 +47,13 @@ CREATE TABLE if not exists project_detail
     UNIQUE (project_id, detail_type)
 ) COMMENT '项目详情表';
 
--- 项目授权表，项目成员表
+-- 项目授权表，项目成员表，删除是真删除
 CREATE TABLE if not exists project_user
 (
     id           BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键,技术主键,不参与业务',
     project_id   BIGINT NOT NULL COMMENT '业务id,java使用Long,前端使用String',
     user_id      BIGINT NOT NULL COMMENT '用户id,java使用Long,前端使用String',
-    project_role VARCHAR(32)  COMMENT '扩展字段,项目级别角色',
+    project_role VARCHAR(32)  COMMENT '扩展字段,项目级别角色, 未使用',
     create_user  BIGINT COMMENT '创建用户',
     update_user  BIGINT COMMENT '修改用户',
     create_time  DATETIME    DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -60,7 +61,7 @@ CREATE TABLE if not exists project_user
     UNIQUE (project_id, user_id)
 ) COMMENT '项目授权表';
 
--- 任务树表
+-- 任务树表, 删除是真删除
 CREATE TABLE if not exists tree_node
 (
     id           BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '自增主键,技术主键,不参与业务',
@@ -142,9 +143,3 @@ CREATE TABLE if not exists cluster (
     create_time    DATETIME                          DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_time    DATETIME                          DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间'
 ) COMMENT '集群定义表';
-
--- 运行态的表
-CREATE TABLE if not exists task_instance (
-
-)
-

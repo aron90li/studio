@@ -10,10 +10,9 @@ import java.util.List;
 public interface UserMapper {
 
     @Select("""
-                SELECT id, user_id, username, password, enabled, role, create_time, update_time
+                SELECT user_id, username, password, enabled, role, create_time, update_time
                 FROM user
-                WHERE username = #{username} and enabled = 1
-                LIMIT 1
+                WHERE username = #{username} and enabled = 1                
             """)
     UserEntity findByUsername(@Param("username") String username);
 
@@ -21,7 +20,7 @@ public interface UserMapper {
                 INSERT INTO user (user_id, username, password, enabled)
                 VALUES (#{userId}, #{username}, #{password}, #{enabled})
             """)
-    @Options(useGeneratedKeys = true, keyProperty = "id")
+    // @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(UserEntity userEntity);
 
     @Select("""
