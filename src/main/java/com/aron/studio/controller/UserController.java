@@ -2,7 +2,7 @@ package com.aron.studio.controller;
 
 import com.aron.studio.data.Response;
 import com.aron.studio.data.dto.user.AddUserDTO;
-import com.aron.studio.data.dto.user.DeleteUserDTO;
+import com.aron.studio.data.dto.user.UpdateEnabledDTO;
 import com.aron.studio.data.dto.user.ResetPasswordDTO;
 import com.aron.studio.data.dto.user.UpdatePasswordDTO;
 import com.aron.studio.data.vo.UserVO;
@@ -108,20 +108,20 @@ public class UserController {
     }
 
     /**
-     * 删除用户
+     * 启用禁用
      *
      * @param
      * @return
      */
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @PostMapping("/deleteUser")
-    public Response<Void> deleteUser(@RequestBody DeleteUserDTO deleteUserDTO) {
+    @PostMapping("/updateEnabled")
+    public Response<Void> updateEnabled(@RequestBody UpdateEnabledDTO updateEnabledDTO) {
         try {
-            log.info("call deleteUser, userId: {}", deleteUserDTO.getUserId());
-            userService.deleteUser(deleteUserDTO);
+            log.info("call updateEnabled, userId: {}", updateEnabledDTO.getUserId());
+            userService.updateEnabled(updateEnabledDTO);
             return Response.success();
         } catch (Exception e) {
-            log.error("call deleteUser error: ", e);
+            log.error("call updateEnabled error: ", e);
             return Response.fail(e.getMessage());
         }
     }

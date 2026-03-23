@@ -1,3 +1,4 @@
+-- todo 审查唯一索引等，审查删除逻辑
 -- 用户表
 CREATE TABLE if not exists sys_user
 (

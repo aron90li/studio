@@ -73,12 +73,16 @@ public class AuthController {
             captchaUtil.validateCaptcha(loginDTO.getUuid(), loginDTO.getCode());
             UserEntity userEntity = (UserEntity) userService.loadUserByUsername(loginDTO.getUsername());
 
-            if (userEntity == null || !userEntity.isEnabled()) {
-                throw new Exception("用户不存在或者被禁用");
+            if (userEntity == null) {
+                throw new Exception("用户不存在");
+            }
+
+            if (!userEntity.isEnabled()) {
+                throw new Exception("用户被禁用");
             }
 
             if (!passwordEncoder.matches(loginDTO.getPassword(), userEntity.getPassword())) {
-                throw new RuntimeException("用户名或密码错误");
+                throw new RuntimeException("密码错误");
             }
             String userId = String.valueOf(userEntity.getUserId());
             String token = jwtUtil.generateToken(userEntity.getUsername(), userEntity.getRole(), userId);
@@ -92,6 +96,7 @@ public class AuthController {
         }
     }
 
+    // 以下没有使用
     @PostMapping("/refresh-token")
     public Response<Void> refreshToken() {
         return null;

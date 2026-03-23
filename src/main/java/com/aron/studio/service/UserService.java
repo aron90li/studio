@@ -1,7 +1,7 @@
 package com.aron.studio.service;
 
 import com.aron.studio.data.dto.user.AddUserDTO;
-import com.aron.studio.data.dto.user.DeleteUserDTO;
+import com.aron.studio.data.dto.user.UpdateEnabledDTO;
 import com.aron.studio.data.dto.user.ResetPasswordDTO;
 import com.aron.studio.data.dto.user.UpdatePasswordDTO;
 import com.aron.studio.data.vo.UserVO;
@@ -19,7 +19,7 @@ public interface UserService extends UserDetailsService {
 
     void addUser(AddUserDTO addUserDTO);
 
-    void deleteUser(DeleteUserDTO deleteUserDTO);
+    void updateEnabled(UpdateEnabledDTO updateEnabledDTO);
 
     void updatePassword(UpdatePasswordDTO updatePasswordDTO);
 

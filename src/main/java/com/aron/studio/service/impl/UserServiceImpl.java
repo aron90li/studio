@@ -1,8 +1,8 @@
 package com.aron.studio.service.impl;
 
 import com.aron.studio.data.dto.user.AddUserDTO;
-import com.aron.studio.data.dto.user.DeleteUserDTO;
 import com.aron.studio.data.dto.user.ResetPasswordDTO;
+import com.aron.studio.data.dto.user.UpdateEnabledDTO;
 import com.aron.studio.data.dto.user.UpdatePasswordDTO;
 import com.aron.studio.data.enums.RoleEnum;
 import com.aron.studio.data.rbac.entity.UserEntity;
@@ -68,6 +68,7 @@ public class UserServiceImpl implements UserService {
         userVO.setCreateTime(userEntity.getCreateTime());
         userVO.setUpdateTime(userEntity.getUpdateTime());
         userVO.setRole(userEntity.getRole());
+        userVO.setEnabled(userEntity.isEnabled());
         return userVO;
     }
 
@@ -87,27 +88,28 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public void deleteUser(DeleteUserDTO deleteUserDTO) {
-        if (deleteUserDTO == null || !StringUtils.hasText(deleteUserDTO.getUserId())) {
+    public void updateEnabled(UpdateEnabledDTO updateEnabledDTO) {
+        if (updateEnabledDTO == null || !StringUtils.hasText(updateEnabledDTO.getUserId())) {
             throw new IllegalArgumentException("userId is required");
         }
 
         Long currentUserId = currentUserUtil.getCurrentUserId().orElseThrow(() -> new SecurityException("未登录"));
         String currentUserRole = currentUserUtil.getCurrentRole().get();
 
-        Long targetUserId = parseUserId(deleteUserDTO.getUserId());
+        Long targetUserId = parseUserId(updateEnabledDTO.getUserId());
         UserEntity targetUser = userMapper.findByUserId(targetUserId);
         if (targetUser == null) {
-            throw new RuntimeException("用户不存在或已禁用");
+            throw new RuntimeException("用户不存在");
         }
 
         if (targetUser.getRole().equalsIgnoreCase(RoleEnum.ROLE_ADMIN.getCode())) {
-            throw new RuntimeException("不允许删除管理员用户");
+            throw new RuntimeException("不允许禁用管理员用户");
         }
 
-        int rows = userMapper.disableUserByUserId(targetUserId, currentUserId, LocalDateTime.now());
+        int rows = userMapper.updateEnabledByUserId(targetUserId, updateEnabledDTO.getEnabled(),
+                currentUserId, LocalDateTime.now());
         if (rows != 1) {
-            throw new RuntimeException("删除用户失败");
+            throw new RuntimeException("禁用用户失败");
         }
     }
 

@@ -13,31 +13,32 @@ public interface UserMapper {
     @Select("""
                 SELECT user_id, username, password, enabled, role, create_time, update_time
                 FROM sys_user
-                WHERE username = #{username} and enabled = 1
+                WHERE username = #{username}
             """)
     UserEntity findByUsername(@Param("username") String username);
+
+    @Select("""
+                SELECT user_id, username, password, enabled, role, create_time, update_time
+                FROM sys_user
+                WHERE user_id = #{userId}
+            """)
+    UserEntity findByUserId(@Param("userId") Long userId);
 
     @Select("""
                 SELECT COUNT(*) FROM sys_user WHERE username = #{username}
             """)
     int countByUsername(@Param("username") String username);
 
-    @Select("""
-                SELECT user_id, username, password, enabled, role, create_time, update_time
-                FROM sys_user
-                WHERE user_id = #{userId} and enabled = 1
-            """)
-    UserEntity findByUserId(@Param("userId") Long userId);
 
     @Insert("""
                 INSERT INTO sys_user (user_id, username, password, enabled)
                 VALUES (#{userId}, #{username}, #{password}, #{enabled})
             """)
-    // @Options(useGeneratedKeys = true, keyProperty = "id")
+        // @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(UserEntity userEntity);
 
     @Select("""
-                SELECT user_id FROM sys_user WHERE role =  #{role} and enabled = 1
+                SELECT user_id FROM sys_user WHERE role =  #{role}
             """)
     List<Long> selectUserIdsByRole(@Param("role") String role);
 
@@ -47,31 +48,29 @@ public interface UserMapper {
                     update_user = #{updateUser},
                     update_time = #{updateTime}
                 WHERE user_id = #{userId}
-                  AND enabled = 1
             """)
     int updatePasswordByUserId(@Param("userId") Long userId, @Param("password") String password,
                                @Param("updateUser") Long updateUser, @Param("updateTime") LocalDateTime updateTime);
 
     @Update("""
                 UPDATE sys_user
-                SET enabled = 0,
+                SET enabled = #{enabled},
                     update_user = #{updateUser},
                     update_time = #{updateTime}
                 WHERE user_id = #{userId}
-                  AND enabled = 1
             """)
-    int disableUserByUserId(@Param("userId") Long userId, @Param("updateUser") Long updateUser,
-                            @Param("updateTime") LocalDateTime updateTime);
+    int updateEnabledByUserId(@Param("userId") Long userId, @Param("enabled") Boolean enabled,
+                              @Param("updateUser") Long updateUser, @Param("updateTime") LocalDateTime updateTime);
 
 
     @Select("""
-                SELECT user_id as userId, 
+                SELECT user_id as userId,
                        username as username,
                        role as role,
+                       enabled as enabled,
                        create_time as createTime,
                        update_time as updateTime
-                FROM sys_user
-                WHERE enabled = 1 order by create_time asc
+                FROM sys_user order by create_time asc
             """)
     List<UserVO> getAllUsers();
 

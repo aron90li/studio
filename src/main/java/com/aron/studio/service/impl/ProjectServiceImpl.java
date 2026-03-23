@@ -114,6 +114,8 @@ public class ProjectServiceImpl implements ProjectService {
     @Override
     @Transactional
     public int deleteProjects(List<String> projectIds) {
+        // todo 如果 task_instance表中有相关任务，无论什么状态，要删除后才能删除项目。
+
         List<Long> projectIdList = projectIds.stream().map(Long::valueOf).collect(Collectors.toUnmodifiableList());
         int cnt = projectMapper.deleteProjects(projectIdList);
         projectMapper.deleteProjectUserByProjectIds(projectIdList);

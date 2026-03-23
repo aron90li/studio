@@ -115,6 +115,7 @@ public class TaskServiceImpl implements TaskService {
                 throw new RuntimeException("不能删除含有子节点的目录");
             }
         }
+        // todo 当删除任务节点时候，更新task表
 
         return taskMapper.deleteTreeNode(projectId, nodeId);
     }
