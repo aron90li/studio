@@ -71,7 +71,7 @@ public interface UserMapper {
                        create_time as createTime,
                        update_time as updateTime
                 FROM sys_user
-                WHERE enabled = 1
+                WHERE enabled = 1 order by create_time asc
             """)
     List<UserVO> getAllUsers();
 

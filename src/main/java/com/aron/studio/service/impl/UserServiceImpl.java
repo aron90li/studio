@@ -93,10 +93,16 @@ public class UserServiceImpl implements UserService {
         }
 
         Long currentUserId = currentUserUtil.getCurrentUserId().orElseThrow(() -> new SecurityException("未登录"));
+        String currentUserRole = currentUserUtil.getCurrentRole().get();
+
         Long targetUserId = parseUserId(deleteUserDTO.getUserId());
         UserEntity targetUser = userMapper.findByUserId(targetUserId);
         if (targetUser == null) {
             throw new RuntimeException("用户不存在或已禁用");
+        }
+
+        if (targetUser.getRole().equalsIgnoreCase(RoleEnum.ROLE_ADMIN.getCode())) {
+            throw new RuntimeException("不允许删除管理员用户");
         }
 
         int rows = userMapper.disableUserByUserId(targetUserId, currentUserId, LocalDateTime.now());
