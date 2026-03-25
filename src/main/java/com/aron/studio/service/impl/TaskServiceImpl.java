@@ -4,6 +4,7 @@ import com.aron.studio.data.dao.UpdateTaskDAO;
 import com.aron.studio.data.dto.task.UpdateTaskDTO;
 import com.aron.studio.data.dto.tree.CreateTreeNodeDTO;
 import com.aron.studio.data.dto.tree.DeleteTreeNodeDTO;
+import com.aron.studio.data.dto.tree.UpdateTreeNodeDTO;
 import com.aron.studio.data.vo.ProjectDetailVO;
 import com.aron.studio.data.vo.TaskVO;
 import com.aron.studio.data.vo.TreeNodeVO;
@@ -14,13 +15,13 @@ import com.aron.studio.util.CurrentUserUtil;
 import com.aron.studio.util.SnowflakeIdGenerator;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
-import java.util.Date;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -47,42 +48,44 @@ public class TaskServiceImpl implements TaskService {
 
         Long nodeId = snowflakeIdGenerator.nextId();
         Long projectId = Long.valueOf(createTreeNodeDTO.getProjectId());
-        Long parentNodeId = Long.valueOf(createTreeNodeDTO.getParentNodeId()); // 除了根目录, 其他不许为空
+        Long parentNodeId = Long.valueOf(createTreeNodeDTO.getParentNodeId());
         String nodeName = createTreeNodeDTO.getNodeName();
         String nodeType = createTreeNodeDTO.getNodeType();
 
-        // 目录同级不能同名， 任务目前全局唯一
+        // 唯一键是 project_id, parent_node_id, node_name, node_type
+        // 目录和任务都满足同一个项目下，同级不能同名，由数据库唯一键约束
         if (nodeType.equalsIgnoreCase("folder")) {
-            if (taskMapper.countByNodeNameAndParentNodeId(nodeName, "folder", parentNodeId) > 0) {
-                throw new RuntimeException("同级已存在同名的目录");
+            // 会抛异常，同目录下目录名相同异常
+            try {
+                taskMapper.insertTreeNode(nodeId, projectId, nodeName, "folder", parentNodeId, null, currentUserId);
+            } catch (DuplicateKeyException e) {
+                throw new DuplicateKeyException("该目录下已存在同名子目录", e);
             }
-
-            int cnt = taskMapper.insertTreeNode(nodeId, projectId, nodeName, "folder", parentNodeId, null, currentUserId);
             return Map.of("nodeId", nodeId.toString());
         } else if (nodeType.equalsIgnoreCase("task")) {
-            if (taskMapper.countByNodeName(nodeName, "task") > 0) {
-                throw new RuntimeException("已存在同名的任务");
-            }
-
-            if (taskMapper.countTaskByTaskName(nodeName) > 0) {
-                throw new RuntimeException("已存在同名的任务");
-            }
-
+            // a. 插入树节点，会抛异常，同目录下任务名相同异常
             Long taskId = snowflakeIdGenerator.nextId();
-            int cnt = taskMapper.insertTreeNode(nodeId, projectId, nodeName, "task", parentNodeId, taskId, currentUserId);
+            try {
+                int cnt = taskMapper.insertTreeNode(nodeId, projectId, nodeName, "task", parentNodeId, taskId, currentUserId);
+            } catch (DuplicateKeyException e) {
+                throw new DuplicateKeyException("该目录下已存在同名任务", e);
+            }
 
-            // 项目下的环境参数模板
+            // 任务名字的额外限制，在 task 表中实现
+            // b. 插入任务表，会抛异常，任务名重复异常
             String taskParam = null;
             List<ProjectDetailVO> pdList = projectMapper.getProjectDetail(projectId, "env_template");
             if (pdList != null && pdList.size() > 0) {
-                taskParam = pdList.get(1).getDetailValue();
+                taskParam = pdList.get(0).getDetailValue();
             }
-
-            // sql前缀
             String taskSql = String.format("-- createUser: %s\n-- createTime: %s", currentUserUtil.getCurrentUsername().get(),
-                    new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
-            int taskCnt = taskMapper.insertTask(projectId, taskId, nodeName, currentUserId, taskParam, taskSql);
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 
+            try {
+                int taskCnt = taskMapper.insertTask(projectId, taskId, nodeName, currentUserId, taskParam, taskSql);
+            } catch (DuplicateKeyException e) {
+                throw new DuplicateKeyException("任务表中已存在同名任务", e);
+            }
             return Map.of("nodeId", nodeId.toString(), "taskId", taskId.toString());
         } else {
             throw new RuntimeException("不支持的节点类型");
@@ -97,6 +100,7 @@ public class TaskServiceImpl implements TaskService {
     @Transactional
     @Override
     public Integer deleteTreeNode(DeleteTreeNodeDTO deleteTreeNodeDTO) {
+        Long currentUserId = currentUserUtil.getCurrentUserId().orElseThrow(() -> new SecurityException("未登录"));
         Long projectId = Long.valueOf(deleteTreeNodeDTO.getProjectId());
         Long nodeId = Long.valueOf(deleteTreeNodeDTO.getNodeId());
 
@@ -106,7 +110,7 @@ public class TaskServiceImpl implements TaskService {
         }
 
         if (treeNodeVO.getNodeType().equalsIgnoreCase("folder")) {
-            if (treeNodeVO.getParentNodeId() == null) {
+            if (Long.valueOf(treeNodeVO.getParentNodeId()) == 0L) {
                 throw new RuntimeException("根节点不能删除");
             }
 
@@ -114,17 +118,66 @@ public class TaskServiceImpl implements TaskService {
             if (childrenCount > 0) {
                 throw new RuntimeException("不能删除含有子节点的目录");
             }
+
+        } else {
+            //  todo 任务有 task_instance 不能删除，未下线
+
+            // 删除任务
+            Long taskId = Long.valueOf(treeNodeVO.getTaskId());
+            taskMapper.softDeleteTask(projectId, taskId, currentUserId, LocalDateTime.now());
         }
-        // todo 当删除任务节点时候，更新task表
 
         return taskMapper.deleteTreeNode(projectId, nodeId);
+    }
+
+    @Transactional
+    @Override
+    public Integer updateTreeNode(UpdateTreeNodeDTO updateTreeNodeDTO) {
+        Long currentUserId = currentUserUtil.getCurrentUserId().orElseThrow(() -> new SecurityException("未登录"));
+        Long nodeId = Long.valueOf(updateTreeNodeDTO.getNodeId());
+        Long projectId = Long.valueOf(updateTreeNodeDTO.getProjectId());
+        String nodeType = updateTreeNodeDTO.getNodeType();
+
+        Long taskId = null;
+        if (nodeType.equalsIgnoreCase("task")) {
+            try {
+                taskId = Long.valueOf(updateTreeNodeDTO.getTaskId());
+            } catch (NumberFormatException e) {
+                throw new NumberFormatException("更改任务名，taskId必须传入");
+            }
+        }
+
+        // 这两个是要更新的值
+        Long targetParentNodeId = null;
+        if (StringUtils.hasText(updateTreeNodeDTO.getParentNodeId())) {
+            targetParentNodeId = Long.valueOf(updateTreeNodeDTO.getParentNodeId());
+        }
+        String targetNodeName = updateTreeNodeDTO.getNodeName();
+
+        // 1 更新 tree_node 表
+        try {
+            taskMapper.updateTreeNode(nodeId, projectId, nodeType, targetNodeName, targetParentNodeId,
+                    currentUserId, LocalDateTime.now());
+        } catch (DuplicateKeyException e) {
+            throw new DuplicateKeyException("同目录下有相同节点", e);
+        }
+
+        // 2 更新 task 表
+        if (nodeType.equalsIgnoreCase("task") && StringUtils.hasText(targetNodeName)) {
+            // 更新 task 表
+            if (taskId == null) {
+                throw new RuntimeException("更新任务必须传taskId");
+            }
+            taskMapper.updateTaskName(projectId, taskId, targetNodeName, currentUserId, LocalDateTime.now());
+        }
+
+        return 1;
     }
 
     // 带有版本的更新，后续如果有回滚，记得回滚生成新的版本
     @Override
     @Transactional(rollbackFor = Exception.class)
     public TaskVO updateTask(UpdateTaskDTO updateTaskDTO) {
-
         // 1 获取当前用户
         Long currentUserId = currentUserUtil.getCurrentUserId().orElseThrow(() -> new SecurityException("未登录"));
 

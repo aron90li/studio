@@ -14,25 +14,14 @@ import java.util.List;
 @Mapper
 public interface ProjectMapper {
 
-    @Select("""
-                select count(*) from project where project_name = #{projectName}
-            """)
-    int getCountByProjectNameCreate(@Param("projectName") String projectName);
-
-    @Select("""
-                select count(*) from project where project_name = #{projectName} and project_id != #{projectId}
-            """)
-    int getCountByProjectNameUpdate(@Param("projectName") String projectName, @Param("projectId") Long projectId);
-
     @Insert("""
                 INSERT INTO project (project_id, project_name, project_identity, 
-                                  enabled, description, create_user, update_user)
+                                  delete_id, description, create_user, update_user)
                 VALUES (#{projectId}, #{projectName}, #{projectIdentity}, 
-                        #{enabled}, #{description}, #{createUser}, #{updateUser})
+                        #{deleteId}, #{description}, #{createUser}, #{updateUser})
             """)
-    // @Options(useGeneratedKeys = true, keyProperty = "id")
+        // @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertProject(ProjectEntity userEntity);
-
 
     @Select("""
                 SELECT
@@ -41,7 +30,7 @@ public interface ProjectMapper {
                         p.project_identity AS projectIdentity,
                         p.description      AS description,
                         p.create_time      AS createTime,
-                        p.update_time      AS updateTime,            
+                        p.update_time      AS updateTime,
                         cu.username        AS createUsername,
                         cu.user_id         AS createUserId,            
                         uu.username        AS updateUsername,
@@ -54,7 +43,7 @@ public interface ProjectMapper {
                     LEFT JOIN sys_user uu
                         ON p.update_user = uu.user_id
                     WHERE pu.user_id = #{userId}
-                      AND p.enabled = 1
+                      AND p.delete_id = 0
                     ORDER BY p.create_time DESC
             """)
     List<ProjectVO> getProjectByUserId(Long userId);
@@ -63,19 +52,17 @@ public interface ProjectMapper {
     @Update("""
             update project set project_name=#{dao.projectName}, description=#{dao.description}, 
                                update_user=#{currentUserId}, update_time = #{updateTime} 
-                           where project_id = #{dao.projectId}
+                           where project_id = #{dao.projectId} and delete_id=0
             """)
     int updateProject(@Param("dao") UpdateProjectDAO updateProjectDAO, @Param("currentUserId") Long currentUserId,
                       @Param("updateTime") LocalDateTime updateTime);
 
-    @Delete(""" 
-            <script> DELETE FROM project WHERE project_id IN
-            <foreach collection="projectIds" item="projectId" open="(" separator="," close=")">
-                #{projectId}
-            </foreach>
-            </script>
+    @Update("""
+                UPDATE project SET delete_id = project_id
+                WHERE project_id = #{projectId} AND delete_id = 0
             """)
-    int deleteProjects(@Param("projectIds") List<Long> projectIds);
+    int softDeleteProject(@Param("projectId") Long projectId);
+
 
     @Delete(""" 
             <script> DELETE FROM project_user WHERE project_id IN
@@ -86,6 +73,7 @@ public interface ProjectMapper {
             """)
     int deleteProjectUserByProjectIds(@Param("projectIds") List<Long> projectIds);
 
+    // project_user
     @Insert("""
                 INSERT INTO project_user (project_id, user_id, project_role, create_user)
                 VALUES (#{projectId}, #{userId}, #{projectRole}, #{createUser})
@@ -108,10 +96,11 @@ public interface ProjectMapper {
     List<UserVO> getProjectUsers(@Param("projectId") Long projectId);
 
     @Delete("""
-            delete from project_user where project_id= #{projectId} and user_id=#{userId}                
+            delete from project_user where project_id= #{projectId} and user_id=#{userId} 
             """)
     int deleteProjectUser(@Param("projectId") Long projectId, @Param("userId") Long userId);
 
+    // project_detail
     @Select("""
                 select count(*) from project_detail
                 where project_id = #{projectId} and detail_type = #{detailType}
@@ -124,7 +113,7 @@ public interface ProjectMapper {
                 VALUES (#{projectId}, #{detailType}, #{detailValue},
                         #{createUser}, #{updateUser})
             """)
-    // @Options(useGeneratedKeys = true, keyProperty = "id")
+        // @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertProjectDetail(ProjectDetailEntity projectDetailEntity);
 
     @Update("""
@@ -135,11 +124,6 @@ public interface ProjectMapper {
     int updateProjectDetail(@Param("projectId") Long projectId, @Param("detailType") String detailType,
                             @Param("detailValue") String detailValue, @Param("updateUser") Long updateUser,
                             @Param("updateTime") LocalDateTime updateTime);
-
-    @Delete("""
-                delete from project_detail where project_id = #{projectId} and detail_type = #{detailType}
-            """)
-    int deleteProjectDetail(@Param("projectId") Long projectId, @Param("detailType") String detailType);
 
     @Select("""
             <script>

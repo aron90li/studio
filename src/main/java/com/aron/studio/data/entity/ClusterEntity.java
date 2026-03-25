@@ -16,7 +16,7 @@ public class ClusterEntity {
     private String defaultConf; // 默认配置
     private String podTemplate; // 源表
     private String kubeconfig; // 维表
-    private Integer deleted; // 删除标识
+    private Long deleteId; // 删除标识
     private Long createUser; // 创建用户
     private Long updateUser; // 修改用户
     private LocalDateTime createTime; // 创建时间

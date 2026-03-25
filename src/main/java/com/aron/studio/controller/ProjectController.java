@@ -9,6 +9,7 @@ import com.aron.studio.service.ProjectService;
 import com.aron.studio.util.CurrentUserUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -70,6 +71,9 @@ public class ProjectController {
             log.info("call updateProject, params: {}", updateProjectDTO);
             int cnt = projectService.updateProject(updateProjectDTO);
             return Response.success(cnt);
+        } catch (DuplicateKeyException e) {
+            log.error("call updateProject error: ", e);
+            return Response.fail("已存在相同项目标识");
         } catch (Exception e) {
             log.error("call updateProject error: ", e);
             return Response.fail(e.getMessage());
@@ -144,42 +148,7 @@ public class ProjectController {
         }
     }
 
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
-    @PostMapping("/createProjectDetail")
-    public Response<Integer> createProjectDetail(@RequestBody CreateProjectDetailDTO createProjectDetailDTO) {
-        try {
-            log.info("call createProjectDetail, params: {}", createProjectDetailDTO);
-            return Response.success(projectService.createProjectDetail(createProjectDetailDTO));
-        } catch (Exception e) {
-            log.error("call createProjectDetail error: ", e);
-            return Response.fail(e.getMessage());
-        }
-    }
-
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
-    @PostMapping("/updateProjectDetail")
-    public Response<Integer> updateProjectDetail(@RequestBody UpdateProjectDetailDTO updateProjectDetailDTO) {
-        try {
-            log.info("call updateProjectDetail, params: {}", updateProjectDetailDTO);
-            return Response.success(projectService.updateProjectDetail(updateProjectDetailDTO));
-        } catch (Exception e) {
-            log.error("call updateProjectDetail error: ", e);
-            return Response.fail(e.getMessage());
-        }
-    }
-
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
-    @PostMapping("/deleteProjectDetail")
-    public Response<Integer> deleteProjectDetail(@RequestBody DeleteProjectDetailDTO deleteProjectDetailDTO) {
-        try {
-            log.info("call deleteProjectDetail, params: {}", deleteProjectDetailDTO);
-            return Response.success(projectService.deleteProjectDetail(deleteProjectDetailDTO));
-        } catch (Exception e) {
-            log.error("call deleteProjectDetail error: ", e);
-            return Response.fail(e.getMessage());
-        }
-    }
-
+    // project_detail
     @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
     @PostMapping("/createOrUpdateProjectDetail")
     public Response<Integer> createOrUpdateProjectDetail(@RequestBody UpdateProjectDetailDTO updateProjectDetailDTO) {

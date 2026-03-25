@@ -1,7 +1,9 @@
 package com.aron.studio.service.impl;
 
 import com.aron.studio.data.dao.UpdateProjectDAO;
-import com.aron.studio.data.dto.project.*;
+import com.aron.studio.data.dto.project.CreateProjectDTO;
+import com.aron.studio.data.dto.project.UpdateProjectDTO;
+import com.aron.studio.data.dto.project.UpdateProjectDetailDTO;
 import com.aron.studio.data.enums.RoleEnum;
 import com.aron.studio.data.rbac.entity.ProjectDetailEntity;
 import com.aron.studio.data.rbac.entity.ProjectEntity;
@@ -16,6 +18,7 @@ import com.aron.studio.util.CurrentUserUtil;
 import com.aron.studio.util.SnowflakeIdGenerator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -50,27 +53,28 @@ public class ProjectServiceImpl implements ProjectService {
         Long currentUserId = currentUserUtil.getCurrentUserId().get();
 
         if (!StringUtils.hasText(createProjectDTO.getProjectName()) || !StringUtils.hasText(createProjectDTO.getProjectIdentity())) {
-            throw new IllegalArgumentException("项目名字/项目标志不能为空");
+            throw new IllegalArgumentException("项目名字/项目标识不能为空");
         }
 
-        // 0 不能重名
-        if (projectMapper.getCountByProjectNameCreate(createProjectDTO.getProjectName()) > 0) {
-            throw new RuntimeException("已存在同名的项目");
-        }
         // 1 插入项目表
         Long projectId = snowflakeIdGenerator.nextId();
         ProjectEntity projectEntity = new ProjectEntity();
         projectEntity.setProjectId(projectId);
         projectEntity.setProjectName(createProjectDTO.getProjectName());
         projectEntity.setProjectIdentity(createProjectDTO.getProjectIdentity());
-        projectEntity.setEnabled(true);
+        projectEntity.setDeleteId(0L);
         projectEntity.setCreateUser(currentUserId);
         projectEntity.setUpdateUser(currentUserId);
         projectEntity.setDescription(createProjectDTO.getDescription());
-        projectMapper.insertProject(projectEntity);
+        try {
+            projectMapper.insertProject(projectEntity);
+        } catch (Exception e) {
+            throw new DuplicateKeyException("已存在相同项目标识", e);
+        }
 
-        // 1 写入权限project_user表, 登陆用户/创建用户写入
+        // 1 写入权限project_user表, 登陆用户/创建用户写入, 会抛出 DuplicateKeyException
         projectMapper.insertProjectUser(projectId, currentUserId, "", currentUserId);
+
         // 2 含有ROLE_ADMIN系统级别角色的用户写入
         List<Long> adminUserIds = userMapper.selectUserIdsByRole(RoleEnum.ROLE_ADMIN.getCode());
         for (Long adminUserId : adminUserIds) {
@@ -79,9 +83,9 @@ public class ProjectServiceImpl implements ProjectService {
             }
             projectMapper.insertProjectUser(projectId, adminUserId, "", currentUserId);
         }
-        // 3 在 tree_node 表中插入项目的根目录, 任务开发
+        // 3 在 tree_node 表中插入项目的根目录, 任务开发，根目录的parent_node_id是0
         Long nodeId = snowflakeIdGenerator.nextId();
-        taskMapper.insertTreeNode(nodeId, projectId, "任务开发", "folder", null, null, currentUserId);
+        taskMapper.insertTreeNode(nodeId, projectId, "任务开发", "folder", 0L, null, currentUserId);
 
         return projectId.toString();
     }
@@ -97,11 +101,6 @@ public class ProjectServiceImpl implements ProjectService {
     public int updateProject(UpdateProjectDTO updateProjectDTO) {
         Long currentUserId = currentUserUtil.getCurrentUserId().get();
 
-        if (projectMapper.getCountByProjectNameUpdate(updateProjectDTO.getProjectName(),
-                Long.valueOf(updateProjectDTO.getProjectId())) > 0) {
-            throw new RuntimeException("已存在同名的项目");
-        }
-
         UpdateProjectDAO dao = new UpdateProjectDAO();
         dao.setProjectId(Long.valueOf(updateProjectDTO.getProjectId()));
         dao.setProjectName(updateProjectDTO.getProjectName());
@@ -115,11 +114,19 @@ public class ProjectServiceImpl implements ProjectService {
     @Transactional
     public int deleteProjects(List<String> projectIds) {
         // todo 如果 task_instance表中有相关任务，无论什么状态，要删除后才能删除项目。
+        // 只查看task_instance表， 有任务未下线就不能删除
 
         List<Long> projectIdList = projectIds.stream().map(Long::valueOf).collect(Collectors.toUnmodifiableList());
-        int cnt = projectMapper.deleteProjects(projectIdList);
-        projectMapper.deleteProjectUserByProjectIds(projectIdList);
-        return cnt;
+        projectIdList.forEach(projectMapper::softDeleteProject);
+
+        // 以下下两项不物理删除，保留手动恢复能力
+        // 1 删除项目用户
+        // projectMapper.deleteProjectUserByProjectIds(projectIdList);
+        // 2 删除项目详情配置，
+
+        // 3 tree_node也保留吧
+
+        return projectIdList.size();
     }
 
     @Override
@@ -147,58 +154,11 @@ public class ProjectServiceImpl implements ProjectService {
         return projectMapper.getProjectUsers(Long.valueOf(projectId));
     }
 
-    @Override
-    public int createProjectDetail(CreateProjectDetailDTO createProjectDetailDTO) {
-        Long currentUserId = currentUserUtil.getCurrentUserId().get();
-        if (!StringUtils.hasText(createProjectDetailDTO.getProjectId()) ||
-                !StringUtils.hasText(createProjectDetailDTO.getDetailType())) {
-            throw new IllegalArgumentException("projectId/detailType is required");
-        }
-
-        Long projectId = Long.valueOf(createProjectDetailDTO.getProjectId());
-        if (projectMapper.getCountByProjectDetail(projectId, createProjectDetailDTO.getDetailType()) > 0) {
-            throw new RuntimeException("project detail already exists");
-        }
-
-        ProjectDetailEntity projectDetailEntity = new ProjectDetailEntity();
-        projectDetailEntity.setProjectId(projectId);
-        projectDetailEntity.setDetailType(createProjectDetailDTO.getDetailType());
-        projectDetailEntity.setDetailValue(createProjectDetailDTO.getDetailValue());
-        projectDetailEntity.setCreateUser(currentUserId);
-        projectDetailEntity.setUpdateUser(currentUserId);
-
-        return projectMapper.insertProjectDetail(projectDetailEntity);
-    }
-
-    @Override
-    public int updateProjectDetail(UpdateProjectDetailDTO updateProjectDetailDTO) {
-        Long currentUserId = currentUserUtil.getCurrentUserId().get();
-        if (!StringUtils.hasText(updateProjectDetailDTO.getProjectId()) ||
-                !StringUtils.hasText(updateProjectDetailDTO.getDetailType())) {
-            throw new IllegalArgumentException("projectId/detailType is required");
-        }
-
-        return projectMapper.updateProjectDetail(Long.valueOf(updateProjectDetailDTO.getProjectId()),
-                updateProjectDetailDTO.getDetailType(),
-                updateProjectDetailDTO.getDetailValue(),
-                currentUserId, LocalDateTime.now());
-    }
-
-    @Override
-    public int deleteProjectDetail(DeleteProjectDetailDTO deleteProjectDetailDTO) {
-        if (!StringUtils.hasText(deleteProjectDetailDTO.getProjectId()) ||
-                !StringUtils.hasText(deleteProjectDetailDTO.getDetailType())) {
-            throw new IllegalArgumentException("projectId/detailType is required");
-        }
-
-        return projectMapper.deleteProjectDetail(Long.valueOf(deleteProjectDetailDTO.getProjectId()),
-                deleteProjectDetailDTO.getDetailType());
-    }
-
+    // project_detail 操作
     @Override
     public List<ProjectDetailVO> getProjectDetail(String projectId, String detailType) {
         if (!StringUtils.hasText(projectId)) {
-            throw new IllegalArgumentException("projectId is required");
+            throw new IllegalArgumentException("项目id缺失");
         }
         return projectMapper.getProjectDetail(Long.valueOf(projectId), detailType);
     }
@@ -208,7 +168,7 @@ public class ProjectServiceImpl implements ProjectService {
         Long currentUserId = currentUserUtil.getCurrentUserId().get();
         if (!StringUtils.hasText(updateProjectDetailDTO.getProjectId()) ||
                 !StringUtils.hasText(updateProjectDetailDTO.getDetailType())) {
-            throw new IllegalArgumentException("projectId/detailType is required");
+            throw new IllegalArgumentException("项目id或项目详情类型缺失");
         }
 
         Long projectId = Long.valueOf(updateProjectDetailDTO.getProjectId());

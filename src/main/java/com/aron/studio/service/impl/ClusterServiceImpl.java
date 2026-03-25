@@ -11,6 +11,7 @@ import com.aron.studio.util.CurrentUserUtil;
 import com.aron.studio.util.SnowflakeIdGenerator;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -31,21 +32,21 @@ public class ClusterServiceImpl implements ClusterService {
 
     @Override
     public String createCluster(CreateClusterDTO createClusterDTO) {
-        if (clusterMapper.getCountByClusterNameCreate(createClusterDTO.getClusterName()) > 0) {
-            throw new RuntimeException("集群名称已存在");
-        }
-
         Long currentUserId = currentUserUtil.getCurrentUserId().orElseThrow(() -> new SecurityException("未登录"));
 
         Long clusterId = snowflakeIdGenerator.nextId();
         ClusterEntity clusterEntity = new ClusterEntity();
         BeanUtils.copyProperties(createClusterDTO, clusterEntity);
         clusterEntity.setClusterId(clusterId);
-        clusterEntity.setDeleted(0);
+        clusterEntity.setDeleteId(0L);
         clusterEntity.setCreateUser(currentUserId);
         clusterEntity.setUpdateUser(currentUserId);
 
-        clusterMapper.insertCluster(clusterEntity);
+        try {
+            clusterMapper.insertCluster(clusterEntity);
+        } catch (DuplicateKeyException e) {
+            throw new DuplicateKeyException("已存在相同的集群名字", e);
+        }
         return String.valueOf(clusterEntity.getClusterId());
     }
 
@@ -57,22 +58,26 @@ public class ClusterServiceImpl implements ClusterService {
     @Override
     public int updateCluster(UpdateClusterDTO updateClusterDTO) {
         Long currentUserId = currentUserUtil.getCurrentUserId().orElseThrow(() -> new SecurityException("未登录"));
-        if (clusterMapper.getCountByClusterNameUpdate(updateClusterDTO.getClusterName(),
-                Long.valueOf(updateClusterDTO.getClusterId())) > 0) {
-            throw new RuntimeException("集群名称已存在");
-        }
 
         UpdateClusterDAO dao = new UpdateClusterDAO();
         BeanUtils.copyProperties(updateClusterDTO, dao);
         dao.setClusterId(Long.valueOf(updateClusterDTO.getClusterId()));
 
-        return clusterMapper.updateCluster(dao, currentUserId, LocalDateTime.now());
+        int count = 0;
+        try {
+            count = clusterMapper.updateCluster(dao, currentUserId, LocalDateTime.now());
+        } catch (DuplicateKeyException e) {
+            throw new DuplicateKeyException("已存在相同的集群名字", e);
+        }
+        return count;
     }
 
     @Override
     public int deleteClusters(List<String> clusterIds) {
         List<Long> clusterIdList = clusterIds.stream().map(Long::valueOf).collect(Collectors.toUnmodifiableList());
         Long currentUserId = currentUserUtil.getCurrentUserId().orElseThrow(() -> new SecurityException("未登录"));
-        return clusterMapper.deleteClusters(clusterIdList, currentUserId);
+
+        clusterIdList.forEach((clusterId) -> clusterMapper.softDeleteCluster(clusterId, currentUserId, LocalDateTime.now()));
+        return clusterIdList.size();
     }
 }

@@ -10,7 +10,7 @@ public class ProjectEntity {
     private Long projectId;
     private String projectName;
     private String projectIdentity;
-    private Boolean enabled;
+    private Long deleteId;
     private String description;
     private Long createUser;
     private Long updateUser;

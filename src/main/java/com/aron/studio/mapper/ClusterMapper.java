@@ -11,25 +11,15 @@ import java.util.List;
 @Mapper
 public interface ClusterMapper {
 
-    @Select("""
-                select count(*) from sys_cluster where cluster_name = #{clusterName} and deleted = 0 and cluster_id != #{clusterId}
-            """)
-    int getCountByClusterNameUpdate(@Param("clusterName") String clusterName, @Param("clusterId") Long clusterId);
-
-    @Select("""
-                select count(*) from sys_cluster where cluster_name = #{clusterName} and deleted = 0
-            """)
-    int getCountByClusterNameCreate(@Param("clusterName") String clusterName);
-
     @Insert("""
-                INSERT INTO sys_cluster (cluster_id, cluster_name, description, cluster_type,
-                                     flink_version, default_conf, pod_template, kubeconfig,
-                                     deleted, create_user, update_user)
-                VALUES (#{clusterId}, #{clusterName}, #{description}, #{clusterType}, #{flinkVersion}, 
+                INSERT INTO sys_cluster (cluster_id, cluster_name, description, cluster_type, flink_version,
+                                     default_conf, pod_template, kubeconfig,
+                                     delete_id, create_user, update_user)
+                VALUES (#{clusterId}, #{clusterName}, #{description}, #{clusterType}, #{flinkVersion},
                 #{defaultConf, jdbcType=CLOB}, #{podTemplate, jdbcType=CLOB}, #{kubeconfig, jdbcType=CLOB},
-                        #{deleted}, #{createUser}, #{updateUser})
+                        #{deleteId}, #{createUser}, #{updateUser})
             """)
-    // @Options(useGeneratedKeys = true, keyProperty = "id")
+        // @Options(useGeneratedKeys = true, keyProperty = "id")
     int insertCluster(ClusterEntity clusterEntity);
 
     @Select("""
@@ -53,7 +43,7 @@ public interface ClusterMapper {
                     ON c.create_user = cu.user_id
                 LEFT JOIN sys_user uu
                     ON c.update_user = uu.user_id
-                WHERE c.deleted = 0
+                WHERE c.delete_id = 0
                 ORDER BY c.create_time DESC
             """)
     List<ClusterVO> getClusters();
@@ -85,21 +75,15 @@ public interface ClusterMapper {
                 </if>
                 update_user = #{currentUserId}, update_time = #{updateTime}
             </set>
-            WHERE cluster_id = #{dao.clusterId} AND deleted = 0
+            WHERE cluster_id = #{dao.clusterId} AND delete_id = 0
             </script>
             """)
-    int updateCluster(@Param("dao") UpdateClusterDAO dao, @Param("currentUserId") Long currentUserId,
-                      @Param("updateTime") LocalDateTime updateTime);
+    int updateCluster(@Param("dao") UpdateClusterDAO dao, @Param("currentUserId") Long currentUserId, @Param("updateTime") LocalDateTime updateTime);
 
-    @Update("""
-            <script>
+    @Update("""            
             UPDATE sys_cluster
-            SET deleted = 1, update_user = #{currentUserId}
-            WHERE deleted = 0 AND cluster_id IN
-            <foreach collection="clusterIds" item="clusterId" open="(" separator="," close=")">
-                #{clusterId}
-            </foreach>
-            </script>
+            SET delete_id = #{clusterId}, update_user = #{currentUserId}, update_time = #{updateTime}
+            WHERE cluster_id = #{clusterId} and delete_id = 0
             """)
-    int deleteClusters(@Param("clusterIds") List<Long> clusterIds, @Param("currentUserId") Long currentUserId);
+    int softDeleteCluster(@Param("clusterId") Long clusterId, @Param("currentUserId") Long currentUserId, @Param("updateTime") LocalDateTime updateTime);
 }

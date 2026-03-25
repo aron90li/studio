@@ -1,9 +1,11 @@
 package com.aron.studio.controller;
 
 import com.aron.studio.data.Response;
+import com.aron.studio.data.dto.task.CloneTaskDTO;
 import com.aron.studio.data.dto.task.UpdateTaskDTO;
 import com.aron.studio.data.dto.tree.CreateTreeNodeDTO;
 import com.aron.studio.data.dto.tree.DeleteTreeNodeDTO;
+import com.aron.studio.data.dto.tree.UpdateTreeNodeDTO;
 import com.aron.studio.data.vo.TaskVO;
 import com.aron.studio.data.vo.TreeNodeVO;
 import com.aron.studio.service.TaskService;
@@ -36,23 +38,22 @@ public class TaskController {
         return Response.success(taskService.getTreeNode(projectId));
     }
 
-    /**
-     * 包含创建任务和目录
-     *
-     * @param deleteTreeNodeDTO
-     * @return
-     */
     @PostMapping("/deleteTreeNode")
     public Response<Integer> deleteTreeNode(@RequestBody DeleteTreeNodeDTO deleteTreeNodeDTO) {
         log.info("call deleteTreeNode, param: {}", deleteTreeNodeDTO);
         return Response.success(taskService.deleteTreeNode(deleteTreeNodeDTO));
     }
 
+    /**
+     * 更新节点，包括节点重命名和节点移动目录
+     *
+     * @param updateTreeNodeDTO
+     * @return
+     */
     @PostMapping("/updateTreeNode")
-    public Response<Integer> updateTreeNode() {
-        // todo
-        log.info("call updateTreeNode, param: {}");
-        return Response.success();
+    public Response<Integer> updateTreeNode(@RequestBody UpdateTreeNodeDTO updateTreeNodeDTO) {
+        log.info("call updateTreeNode, param: {}", updateTreeNodeDTO);
+        return Response.success(taskService.updateTreeNode(updateTreeNodeDTO));
     }
 
     /**
@@ -64,7 +65,7 @@ public class TaskController {
      */
     @PostMapping("/updateTask")
     public Response<TaskVO> updateTask(@RequestBody UpdateTaskDTO updateTaskDTO) {
-        // log.info("call updateTask, param: {}", updateTaskDTO);
+        log.info("call updateTask, taskId: {}, taskName: {}", updateTaskDTO.getTaskId(), updateTaskDTO.getTaskName());
         return Response.success(taskService.updateTask(updateTaskDTO));
     }
 
@@ -72,6 +73,12 @@ public class TaskController {
     public Response<TaskVO> getTask(@RequestParam("projectId") String projectId, @RequestParam("taskId") String taskId) {
         TaskVO taskVO = taskService.getTask(projectId, taskId);
         return Response.success(taskVO);
+    }
+
+    @PostMapping("/cloneTask")
+    public Response<Void> cloneTask(@RequestBody CloneTaskDTO cloneTaskDTO) {
+        log.info("call cloneTask, ");
+        return Response.success();
     }
 
 

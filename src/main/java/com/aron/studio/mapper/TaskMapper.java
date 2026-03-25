@@ -10,18 +10,6 @@ import java.util.List;
 
 @Mapper
 public interface TaskMapper {
-    // getCountByNodeName
-    @Select("""
-                select count(*) from tree_node where node_name = #{nodeName} and node_type = #{nodeType}
-            """)
-    int countByNodeName(@Param("nodeName") String nodeName, @Param("nodeType") String nodeType);
-
-    @Select("""
-                select count(*) from tree_node where node_name = #{nodeName} and node_type = #{nodeType} 
-                and parent_node_id = #{parentNodeId}
-            """)
-    int countByNodeNameAndParentNodeId(@Param("nodeName") String nodeName, @Param("nodeType") String nodeType,
-                                       @Param("parentNodeId") Long parentNodeId);
 
     // tree_node操作
     @Insert("""
@@ -34,6 +22,25 @@ public interface TaskMapper {
                        @Param("nodeName") String nodeName, @Param("nodeType") String nodeType,
                        @Param("parentNodeId") Long parentNodeId, @Param("taskId") Long taskId,
                        @Param("createUser") Long createUser);
+
+    @Update("""
+            <script>
+                update tree_node 
+                    <set>
+                        <if test="nodeName != null and nodeName !=''">
+                            node_name = #{nodeName},
+                        </if>
+                        <if test="parentNodeId != null">
+                            parent_node_id = #{parentNodeId},
+                        </if>
+                        update_user = #{updateUser}, update_time = #{updateTime}
+                    </set>
+                where node_id = #{nodeId} and project_id = #{projectId} and node_type = #{nodeType}
+            </script>
+            """)
+    int updateTreeNode(@Param("nodeId") Long nodeId, @Param("projectId") Long projectId, @Param("nodeType") String nodeType,
+                       @Param("nodeName") String nodeName, @Param("parentNodeId") Long parentNodeId,
+                       @Param("updateUser") Long updateUser, @Param("updateTime") LocalDateTime updateTime);
 
 
     @Select("""
@@ -68,13 +75,7 @@ public interface TaskMapper {
             """)
     int selectChildrenCount(@Param("projectId") Long projectId, @Param("nodeId") Long nodeId);
 
-    /// ////////////////////////////////////////////////////////////////////////////////////////////
-
-    // task, task_version 操作
-    @Select("""
-                select count(*) from task where task_name = #{taskName}
-            """)
-    int countTaskByTaskName(@Param("taskName") String taskName);
+    /// task, task_version 操作 ////////////////////////////////////////////////////////////////////////////////////////////
 
     // 插入 task 表
     @Insert("""
@@ -84,6 +85,13 @@ public interface TaskMapper {
     int insertTask(@Param("projectId") Long projectId, @Param("taskId") Long taskId,
                    @Param("taskName") String taskName, @Param("createUser") Long createUser,
                    @Param("taskParam") String taskParam, @Param("taskSql") String taskSql);
+
+    @Update("""
+            update task set delete_id = #{taskId}, update_user = #{updateUser}, update_time = #{updateTime}
+             where task_id = #{taskId} and project_id = #{projectId} and delete_id = 0
+            """)
+    int softDeleteTask(@Param("projectId") Long projectId, @Param("taskId") Long taskId,
+                       @Param("updateUser") Long updateUser, @Param("updateTime") LocalDateTime updateTime);
 
     // 更新 task 表 , 返回 0 说明该版本已经更新过了，业务端要处理这种现象
     // 这个方法 每次修改都增加版本号，后续要优化成特定字段的改变才增加版本号，需要service层协同处理
@@ -186,9 +194,16 @@ public interface TaskMapper {
                 task_sink    as taskSink,
                 task_version as taskVersion 
             from task 
-            where project_id=#{projectId} and task_id=#{taskId}
+            where project_id=#{projectId} and task_id=#{taskId} and delete_id = 0
             """)
     TaskVO selectTask(@Param("projectId") Long projectId, @Param("taskId") Long taskId);
+
+    @Update("""
+            update task set task_name = #{taskName}, update_user = #{updateUser}, update_time = #{updateTime}
+            where task_id = #{taskId} and project_id = #{projectId} and delete_id = 0
+            """)
+    int updateTaskName(@Param("projectId") Long projectId, @Param("taskId") Long taskId, @Param("taskName") String taskName,
+                       @Param("updateUser") Long updateUser, @Param("updateTime") LocalDateTime updateTime);
 
     // 插入版本表 task_version
     @Insert("""

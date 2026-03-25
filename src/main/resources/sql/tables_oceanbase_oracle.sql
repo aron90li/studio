@@ -1,7 +1,5 @@
 -- =============================================
 -- 1. 用户表 (SYS_USER)
--- 原表名 'user' 是 Oracle 保留字，可改为 'sys_user'
--- 主键变更为: user_id
 -- =============================================
 CREATE TABLE sys_user
 (
@@ -35,40 +33,36 @@ COMMENT ON COLUMN sys_user.update_time IS '修改时间';
 INSERT INTO sys_user(user_id, username, nickname, password, enabled, role, description)
 VALUES (1, 'admin', '管理员', '$2a$10$n7GshUuBhFhfoRk9u.GC/uXzSqu7M6DsoQtOkx0iBKFO7eZc6GiKq', 1, 'ROLE_ADMIN', '管理员');
 
-
 -- =============================================
 -- 2. 项目表 (PROJECT)
--- 主键变更为: project_id
 -- =============================================
 CREATE TABLE project
 (
-    project_id       NUMBER(19,0) PRIMARY KEY,
+    project_id       NUMBER(19,0)   PRIMARY KEY,
+    project_identity VARCHAR2(255)  NOT NULL,
     project_name     VARCHAR2(255)  NOT NULL,
-    project_identity VARCHAR2(255),
-    enabled          NUMBER(1,0)    NOT NULL DEFAULT 1,
     description      VARCHAR2(255),
+    delete_id        NUMBER(19,0)   NOT NULL DEFAULT 0,
     create_user      NUMBER(19,0),
     update_user      NUMBER(19,0),
     create_time      DATE           DEFAULT SYSDATE,
-    update_time      DATE           DEFAULT SYSDATE
+    update_time      DATE           DEFAULT SYSDATE,
+    CONSTRAINT uk_identity_delete_id UNIQUE (project_identity, delete_id)
 );
 
 COMMENT ON TABLE project IS '项目表';
-COMMENT ON COLUMN project.project_id IS '业务 id,java 使用 Long,前端使用 String (现作为主键)';
-COMMENT ON COLUMN project.project_name IS '项目名称';
-COMMENT ON COLUMN project.project_identity IS '项目标志';
-COMMENT ON COLUMN project.enabled IS '启用标志';
+COMMENT ON COLUMN project.project_id IS '业务id,java 使用 Long,前端使用 String (现作为主键)';
+COMMENT ON COLUMN project.project_identity IS '项目标识, 未删除的保持唯一';
+COMMENT ON COLUMN project.project_name   IS '项目名称';
+COMMENT ON COLUMN project.delete_id      IS '0-未删除, >0-已删除,存储project_id';
 COMMENT ON COLUMN project.description IS '项目描述';
 COMMENT ON COLUMN project.create_user IS '创建用户';
 COMMENT ON COLUMN project.update_user IS '修改用户';
 COMMENT ON COLUMN project.create_time IS '创建时间';
 COMMENT ON COLUMN project.update_time IS '修改时间';
 
-
 -- =============================================
 -- 3. 项目详情表 (PROJECT_DETAIL)
--- 主键变更为复合主键: (project_id, detail_type)
--- 移除了 id 列
 -- =============================================
 CREATE TABLE project_detail
 (
@@ -94,8 +88,6 @@ COMMENT ON COLUMN project_detail.update_time IS '修改时间';
 
 -- =============================================
 -- 4. 项目授权表 (PROJECT_USER)
--- 主键变更为复合主键: (project_id, user_id)
--- 移除了 id 列
 -- =============================================
 CREATE TABLE project_user
 (
@@ -118,40 +110,35 @@ COMMENT ON COLUMN project_user.update_user IS '修改用户';
 COMMENT ON COLUMN project_user.create_time IS '创建时间';
 COMMENT ON COLUMN project_user.update_time IS '修改时间';
 
-
 -- =============================================
 -- 5. 任务树表 (TREE_NODE)
--- 主键变更为: node_id (原逻辑中 node_id 在 project_id 下唯一，此处提升为主键需确保全局唯一或改用复合主键)
--- 根据原表结构 UNIQUE (project_id, node_id)，这里改为复合主键以保数据完整性
--- 移除了 id 列
 -- =============================================
 CREATE TABLE tree_node
 (
-    node_id        NUMBER(19,0) NOT NULL,
+    node_id        NUMBER(19,0) PRIMARY KEY,
     project_id     NUMBER(19,0) NOT NULL,
     node_name      VARCHAR2(255) NOT NULL,
     node_type      VARCHAR2(32),
-    parent_node_id NUMBER(19,0),
+    parent_node_id NUMBER(19,0) NOT NULL DEFAULT 0,
     task_id        NUMBER(19,0),
     create_user    NUMBER(19,0),
     update_user    NUMBER(19,0),
     create_time    DATE           DEFAULT SYSDATE,
     update_time    DATE           DEFAULT SYSDATE,
-    CONSTRAINT pk_tree_node PRIMARY KEY (project_id, node_id)
+    CONSTRAINT uk_node_id_type_name UNIQUE (project_id, parent_node_id, node_type, node_name)
 );
-
+CREATE INDEX idx_tree_node_project_id ON tree_node(project_id);
 COMMENT ON TABLE tree_node IS '任务树表';
 COMMENT ON COLUMN tree_node.node_id IS '业务 id,java 使用 Long,前端使用 String (现作为主键一部分)';
 COMMENT ON COLUMN tree_node.project_id IS '项目 id';
 COMMENT ON COLUMN tree_node.node_name IS '节点名称，文件夹名字或者任务名字';
 COMMENT ON COLUMN tree_node.node_type IS '节点类型:folder/task';
-COMMENT ON COLUMN tree_node.parent_node_id IS '父节点 id,根节点是 null';
+COMMENT ON COLUMN tree_node.parent_node_id IS '父节点 id,根节点是0';
 COMMENT ON COLUMN tree_node.task_id IS '任务 id, node_type 是任务才有';
 COMMENT ON COLUMN tree_node.create_user IS '创建用户';
 COMMENT ON COLUMN tree_node.update_user IS '修改用户';
 COMMENT ON COLUMN tree_node.create_time IS '创建时间';
 COMMENT ON COLUMN tree_node.update_time IS '修改时间';
-
 
 -- =============================================
 -- 6. 任务表 (TASK)
@@ -162,7 +149,7 @@ CREATE TABLE task
 (
     task_id        NUMBER(19,0) PRIMARY KEY,
     project_id     NUMBER(19,0) NOT NULL,
-    task_name      VARCHAR2(255) UNIQUE NOT NULL,
+    task_name      VARCHAR2(255) NOT NULL,
     description    VARCHAR2(255),
     task_type      VARCHAR2(255),
     task_sql       CLOB,
@@ -171,12 +158,13 @@ CREATE TABLE task
     task_side      CLOB,
     task_sink      CLOB,
     task_version   NUMBER(10,0) NOT NULL DEFAULT 0,
-    deleted        NUMBER(1,0)  DEFAULT 0,
+    delete_id      NUMBER(19,0) NOT NULL DEFAULT 0,
     publish_status NUMBER(1,0),
     create_user    NUMBER(19,0),
     update_user    NUMBER(19,0),
     create_time    DATE         DEFAULT SYSDATE,
-    update_time    DATE         DEFAULT SYSDATE
+    update_time    DATE         DEFAULT SYSDATE,
+    CONSTRAINT uk_task_name_delete_id UNIQUE (task_name, delete_id)
 );
 
 COMMENT ON TABLE task IS '任务表';
@@ -191,7 +179,7 @@ COMMENT ON COLUMN task.task_source IS '源表';
 COMMENT ON COLUMN task.task_side IS '维表';
 COMMENT ON COLUMN task.task_sink IS '结果表';
 COMMENT ON COLUMN task.task_version IS '任务版本，版本表的最新版本，应用层注意并发更新问题';
-COMMENT ON COLUMN task.deleted IS '删除标识';
+COMMENT ON COLUMN task.delete_id IS '0-未删除, >0-已删除,存储task_id';
 COMMENT ON COLUMN task.publish_status IS '预留字段，发布状态：0 草稿 -1 已发布 -2 已下线';
 COMMENT ON COLUMN task.create_user IS '创建用户';
 COMMENT ON COLUMN task.update_user IS '修改用户';
@@ -260,11 +248,12 @@ CREATE TABLE sys_cluster
     default_conf   CLOB,
     pod_template   CLOB,
     kubeconfig     CLOB,
-    deleted        NUMBER(1,0)  DEFAULT 0,
+    delete_id      NUMBER(19,0) NOT NULL DEFAULT 0,
     create_user    NUMBER(19,0),
     update_user    NUMBER(19,0),
     create_time    DATE         DEFAULT SYSDATE,
-    update_time    DATE         DEFAULT SYSDATE
+    update_time    DATE         DEFAULT SYSDATE,
+    CONSTRAINT uk_cluster_name_delete_id UNIQUE (cluster_name, delete_id)
 );
 
 COMMENT ON TABLE sys_cluster IS '集群定义表';
@@ -276,7 +265,7 @@ COMMENT ON COLUMN sys_cluster.flink_version IS 'flink 任务版本';
 COMMENT ON COLUMN sys_cluster.default_conf IS '集群的默认参数，优先级低于任务参数，支持 yaml 和 properties 两种，后台能够自动识别';
 COMMENT ON COLUMN sys_cluster.pod_template IS 'pod 模板';
 COMMENT ON COLUMN sys_cluster.kubeconfig IS 'k8s 的 kubeconfig 配置';
-COMMENT ON COLUMN sys_cluster.deleted IS '是否删除';
+COMMENT ON COLUMN sys_cluster.delete_id IS '0-未删除, >0-已删除,存储 cluster_id';
 COMMENT ON COLUMN sys_cluster.create_user IS '创建用户';
 COMMENT ON COLUMN sys_cluster.update_user IS '修改用户';
 COMMENT ON COLUMN sys_cluster.create_time IS '创建时间';

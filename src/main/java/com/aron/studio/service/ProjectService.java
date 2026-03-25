@@ -22,12 +22,6 @@ public interface ProjectService {
 
     List<UserVO> getProjectUsers(String projectId);
 
-    int createProjectDetail(CreateProjectDetailDTO createProjectDetailDTO);
-
-    int updateProjectDetail(UpdateProjectDetailDTO updateProjectDetailDTO);
-
-    int deleteProjectDetail(DeleteProjectDetailDTO deleteProjectDetailDTO);
-
     List<ProjectDetailVO> getProjectDetail(String projectId, String detailType);
 
     int createOrUpdateProjectDetail(UpdateProjectDetailDTO updateProjectDetailDTO);
