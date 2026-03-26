@@ -1,6 +1,7 @@
 package com.aron.studio.service.impl;
 
 import com.aron.studio.data.dao.UpdateTaskDAO;
+import com.aron.studio.data.dto.task.CloneTaskDTO;
 import com.aron.studio.data.dto.task.UpdateTaskDTO;
 import com.aron.studio.data.dto.tree.CreateTreeNodeDTO;
 import com.aron.studio.data.dto.tree.DeleteTreeNodeDTO;
@@ -134,41 +135,52 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public Integer updateTreeNode(UpdateTreeNodeDTO updateTreeNodeDTO) {
         Long currentUserId = currentUserUtil.getCurrentUserId().orElseThrow(() -> new SecurityException("未登录"));
+
         Long nodeId = Long.valueOf(updateTreeNodeDTO.getNodeId());
         Long projectId = Long.valueOf(updateTreeNodeDTO.getProjectId());
         String nodeType = updateTreeNodeDTO.getNodeType();
 
-        Long taskId = null;
-        if (nodeType.equalsIgnoreCase("task")) {
-            try {
-                taskId = Long.valueOf(updateTreeNodeDTO.getTaskId());
-            } catch (NumberFormatException e) {
-                throw new NumberFormatException("更改任务名，taskId必须传入");
-            }
+        if (StringUtils.hasText(updateTreeNodeDTO.getNodeName()) && StringUtils.hasText(updateTreeNodeDTO.getParentNodeId())) {
+            throw new IllegalArgumentException("不能同时更新名字和移动目录，nodeName和parentNodeId只能传一个");
+        }
+        if (!StringUtils.hasText(updateTreeNodeDTO.getNodeName()) && !StringUtils.hasText(updateTreeNodeDTO.getParentNodeId())) {
+            throw new IllegalArgumentException("nodeName和parentNodeId必须传一个");
         }
 
-        // 这两个是要更新的值
-        Long targetParentNodeId = null;
+        // 1 这是移动节点到其他目录
         if (StringUtils.hasText(updateTreeNodeDTO.getParentNodeId())) {
-            targetParentNodeId = Long.valueOf(updateTreeNodeDTO.getParentNodeId());
-        }
-        String targetNodeName = updateTreeNodeDTO.getNodeName();
-
-        // 1 更新 tree_node 表
-        try {
-            taskMapper.updateTreeNode(nodeId, projectId, nodeType, targetNodeName, targetParentNodeId,
-                    currentUserId, LocalDateTime.now());
-        } catch (DuplicateKeyException e) {
-            throw new DuplicateKeyException("同目录下有相同节点", e);
-        }
-
-        // 2 更新 task 表
-        if (nodeType.equalsIgnoreCase("task") && StringUtils.hasText(targetNodeName)) {
-            // 更新 task 表
-            if (taskId == null) {
-                throw new RuntimeException("更新任务必须传taskId");
+            Long targetParentNodeId = Long.valueOf(updateTreeNodeDTO.getParentNodeId());
+            try {
+                taskMapper.updateTreeNode(nodeId, projectId, nodeType, null, targetParentNodeId,
+                        currentUserId, LocalDateTime.now());
+            } catch (DuplicateKeyException e) {
+                throw new DuplicateKeyException("同目录下有相同名字节点", e);
             }
-            taskMapper.updateTaskName(projectId, taskId, targetNodeName, currentUserId, LocalDateTime.now());
+        }
+
+        // 2 这是更新节点名字
+        if (StringUtils.hasText(updateTreeNodeDTO.getNodeName())) {
+            String targetNodeName = updateTreeNodeDTO.getNodeName();
+
+            // 更新node_tree表中的 nodeName
+            try {
+                taskMapper.updateTreeNode(nodeId, projectId, nodeType, targetNodeName, null,
+                        currentUserId, LocalDateTime.now());
+            } catch (DuplicateKeyException e) {
+                throw new DuplicateKeyException("同目录下有相同名字节点", e);
+            }
+
+            // 是任务节点的话，更新task表中的task_name
+            if (nodeType.equalsIgnoreCase("task")) {
+                Long taskId;
+                try {
+                    taskId = Long.valueOf(updateTreeNodeDTO.getTaskId());
+                } catch (NumberFormatException e) {
+                    throw new NumberFormatException("更新任务节点taskId转换失败");
+                }
+
+                taskMapper.updateTaskName(projectId, taskId, targetNodeName, currentUserId, LocalDateTime.now());
+            }
         }
 
         return 1;
@@ -247,6 +259,49 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public TaskVO getTask(String projectId, String taskId) {
         return taskMapper.selectTask(Long.valueOf(projectId), Long.valueOf(taskId));
+    }
+
+    @Transactional
+    @Override
+    public void cloneTask(CloneTaskDTO cloneTaskDTO) {
+        Long currentUserId = currentUserUtil.getCurrentUserId().orElseThrow(() -> new SecurityException("未登录"));
+
+        if (!StringUtils.hasText(cloneTaskDTO.getProjectId()) || !StringUtils.hasText(cloneTaskDTO.getTaskId())
+                || !StringUtils.hasText(cloneTaskDTO.getTaskName()) || !StringUtils.hasText(cloneTaskDTO.getParentNodeId())) {
+            throw new RuntimeException("缺少必要参数：projectId/taskId/taskName/parentNodeId");
+        }
+
+        Long projectId;
+        Long sourceTaskId;
+        Long parentNodeId;
+        try {
+            projectId = Long.valueOf(cloneTaskDTO.getProjectId());
+            sourceTaskId = Long.valueOf(cloneTaskDTO.getTaskId());
+            parentNodeId = Long.valueOf(cloneTaskDTO.getParentNodeId());
+        } catch (NumberFormatException e) {
+            throw new RuntimeException("projectId/taskId/parentNodeId格式错误");
+        }
+
+        Long targetNodeId = snowflakeIdGenerator.nextId();
+        Long targetTaskId = snowflakeIdGenerator.nextId();
+        String targetTaskName = cloneTaskDTO.getTaskName();
+
+        try {
+            taskMapper.insertTreeNode(targetNodeId, projectId, targetTaskName, "task", parentNodeId, targetTaskId, currentUserId);
+        } catch (DuplicateKeyException e) {
+            throw new DuplicateKeyException("该目录下已存在同名任务", e);
+        }
+
+        int cnt;
+        try {
+            cnt = taskMapper.insertCloneTask(projectId, sourceTaskId, targetTaskId, targetTaskName, currentUserId);
+        } catch (DuplicateKeyException e) {
+            throw new DuplicateKeyException("任务表中已存在同名任务", e);
+        }
+
+        if (cnt == 0) {
+            throw new RuntimeException("被克隆的任务不存在");
+        }
     }
 
     private static boolean isNeedNewVersion(UpdateTaskDTO updateTaskDTO, TaskVO oldTask) {

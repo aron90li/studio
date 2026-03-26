@@ -77,7 +77,8 @@ public class TaskController {
 
     @PostMapping("/cloneTask")
     public Response<Void> cloneTask(@RequestBody CloneTaskDTO cloneTaskDTO) {
-        log.info("call cloneTask, ");
+        log.info("call cloneTask, param: {}", cloneTaskDTO);
+        taskService.cloneTask(cloneTaskDTO);
         return Response.success();
     }
 

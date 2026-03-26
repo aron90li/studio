@@ -1,5 +1,6 @@
 package com.aron.studio.service;
 
+import com.aron.studio.data.dto.task.CloneTaskDTO;
 import com.aron.studio.data.dto.task.UpdateTaskDTO;
 import com.aron.studio.data.dto.tree.CreateTreeNodeDTO;
 import com.aron.studio.data.dto.tree.DeleteTreeNodeDTO;
@@ -25,4 +26,6 @@ public interface TaskService {
     TaskVO updateTask(UpdateTaskDTO updateTaskDTO);
 
     TaskVO getTask(String projectId, String taskId);
+
+    void cloneTask(CloneTaskDTO cloneTaskDTO);
 }

@@ -86,6 +86,21 @@ public interface TaskMapper {
                    @Param("taskName") String taskName, @Param("createUser") Long createUser,
                    @Param("taskParam") String taskParam, @Param("taskSql") String taskSql);
 
+    @Insert("""
+            insert into task (
+                project_id, task_id, task_name, description, task_type, task_sql, task_param,
+                task_source, task_side, task_sink, task_version, publish_status, create_user
+            )
+            select
+                t.project_id, #{targetTaskId}, #{targetTaskName}, t.description, t.task_type, t.task_sql, t.task_param,
+                t.task_source, t.task_side, t.task_sink, 0, t.publish_status, #{createUser}
+            from task t
+            where t.project_id = #{projectId} and t.task_id = #{sourceTaskId} and t.delete_id = 0
+            """)
+    int insertCloneTask(@Param("projectId") Long projectId, @Param("sourceTaskId") Long sourceTaskId,
+                        @Param("targetTaskId") Long targetTaskId, @Param("targetTaskName") String targetTaskName,
+                        @Param("createUser") Long createUser);
+
     @Update("""
             update task set delete_id = #{taskId}, update_user = #{updateUser}, update_time = #{updateTime}
              where task_id = #{taskId} and project_id = #{projectId} and delete_id = 0

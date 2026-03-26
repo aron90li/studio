@@ -5,11 +5,12 @@ import lombok.Data;
 @Data
 public class CloneTaskDTO {
 
-    // 必传字段
+    // 项目id
     private String projectId;
+    // 被克隆的 任务id
     private String taskId;
-    private Integer taskVersion; // mapper中 where 带着 taskVersion，如果返回 0 ，则已被修改，业务中要处理这种现象
-
-
-
+    // 克隆后的任务名字
+    private String taskName;
+    // 克隆后的节点任务所在的父目录id
+    private String parentNodeId;
 }
