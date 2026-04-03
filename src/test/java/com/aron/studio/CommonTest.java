@@ -16,5 +16,11 @@ public class CommonTest {
         System.out.println("pattern:        " + localDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
     }
 
+    @Test
+    public void testLong() {
+        Long a = 295477017317609472L;
+
+    }
+
 
 }

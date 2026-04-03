@@ -149,7 +149,15 @@ public class TaskServiceImpl implements TaskService {
 
         // 1 这是移动节点到其他目录
         if (StringUtils.hasText(updateTreeNodeDTO.getParentNodeId())) {
+            if (nodeType.equalsIgnoreCase("folder")) {
+                throw new RuntimeException("不能移动目录");
+            }
+
             Long targetParentNodeId = Long.valueOf(updateTreeNodeDTO.getParentNodeId());
+            if (nodeId.longValue() == targetParentNodeId.longValue()) {
+                throw new RuntimeException("不能移动自己到自己");
+            }
+
             try {
                 taskMapper.updateTreeNode(nodeId, projectId, nodeType, null, targetParentNodeId,
                         currentUserId, LocalDateTime.now());
@@ -179,7 +187,11 @@ public class TaskServiceImpl implements TaskService {
                     throw new NumberFormatException("更新任务节点taskId转换失败");
                 }
 
-                taskMapper.updateTaskName(projectId, taskId, targetNodeName, currentUserId, LocalDateTime.now());
+                try {
+                    taskMapper.updateTaskName(projectId, taskId, targetNodeName, currentUserId, LocalDateTime.now());
+                } catch (DuplicateKeyException e) {
+                    throw new DuplicateKeyException("任务表中已存在同名任务", e);
+                }
             }
         }
 
