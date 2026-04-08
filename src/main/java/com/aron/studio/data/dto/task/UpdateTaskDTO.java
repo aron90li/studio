@@ -19,7 +19,6 @@ public class UpdateTaskDTO {
     private String taskSource; // 源表
     private String taskSide; // 维表
     private String taskSink; // 结果表
-    private Integer deleted; // 删除标识
     private Integer publishStatus; // 预留字段, 发布状态: 0草稿-1已发布-2已下线
 
 }

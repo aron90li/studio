@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
-@FeignClient(name = "stream-engine", url = "${feign.client.url.stream-engine}")
+@FeignClient(name = "studio-engine", url = "${feign.client.url.studio-engine}")
 public interface DatasourceFeignClient {
 
     // feign 返回 LinkedHashmap

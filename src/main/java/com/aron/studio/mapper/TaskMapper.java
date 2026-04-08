@@ -138,9 +138,6 @@ public interface TaskMapper {
                 <if test="dao.taskSink != null">
                     task_sink = #{dao.taskSink},
                 </if>
-                <if test="dao.deleted != null">
-                    deleted = #{dao.deleted},
-                </if>
                 <if test="dao.publishStatus != null">
                     publish_status = #{dao.publishStatus},
                 </if>
@@ -179,9 +176,6 @@ public interface TaskMapper {
                 </if>
                 <if test="dao.taskSink != null">
                     task_sink = #{dao.taskSink},
-                </if>
-                <if test="dao.deleted != null">
-                    deleted = #{dao.deleted},
                 </if>
                 <if test="dao.publishStatus != null">
                     publish_status = #{dao.publishStatus},

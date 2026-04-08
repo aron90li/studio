@@ -1,4 +1,4 @@
-package com.aron.studio.controller;
+package com.aron.studio.controller.feign;
 
 import com.aron.studio.service.TaskService;
 import lombok.extern.slf4j.Slf4j;
@@ -11,11 +11,8 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/taskInstance")
-public class TaskInstanceController {
-
-    @Autowired
-    private TaskService taskService;
+@RequestMapping("/api/taskOperation")
+public class TaskOperationController {
 
 
 }
