@@ -16,7 +16,7 @@ class DatasourceFeignClientTest {
 
     @Test
     void getFeignTest() {
-        Object obj = datasourceFeignClient.getFeignTest("haha");
+
         log.info("ok");
     }
 

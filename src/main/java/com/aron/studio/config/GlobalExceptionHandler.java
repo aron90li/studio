@@ -21,7 +21,11 @@ public class GlobalExceptionHandler {
     }
 
     // 这里写一般业务异常处理 ----------------------------------------------------------------------------------------------
-
+    @ExceptionHandler(RuntimeException.class)
+    public Response<?> handleRuntimeException(RuntimeException e, HttpServletRequest request) {
+        log.error("Runtime异常 | uri={} | method={} | msg={}", request.getRequestURI(), request.getMethod(), e.getMessage(), e);
+        return Response.fail("Runtime异常：" + e.getMessage());
+    }
 
     // 兜底异常处理 ------------------------------------------------------------------------------------------------------
     @ExceptionHandler(Exception.class)
