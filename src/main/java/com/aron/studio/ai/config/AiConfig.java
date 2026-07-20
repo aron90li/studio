@@ -4,21 +4,16 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * AI 配置 - 配置 ChatClient 和 ObjectMapper Bean
+ * AI 配置 - 配置 ObjectMapper Bean
+ * ChatClient 由 LLMClient 自己从 Builder 构建，不需要在此声明
  */
 @Slf4j
 @Configuration
 public class AiConfig {
-
-    @Bean
-    public ChatClient chatClient(ChatClient.Builder builder) {
-        return builder.build();
-    }
 
     /**
      * 手动声明 ObjectMapper Bean
