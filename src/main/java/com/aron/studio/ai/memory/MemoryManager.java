@@ -126,6 +126,74 @@ public class MemoryManager {
     }
 
     /**
+     * 获取用户的所有会话列表（按最后活跃时间倒序）
+     */
+    public List<com.aron.studio.ai.dto.SessionInfo> getSessions(Long userId) {
+        String sql = """
+                SELECT session_id,
+                       COUNT(*) AS message_count,
+                       MAX(create_time) AS last_active_time,
+                       MIN(CASE WHEN role = 'user' THEN create_time END) AS first_user_msg_time
+                FROM ai_chat_history
+                WHERE user_id = ?
+                GROUP BY session_id
+                ORDER BY last_active_time DESC
+                """;
+        List<com.aron.studio.ai.dto.SessionInfo> sessions = jdbcTemplate.query(sql,
+                (rs, rowNum) -> com.aron.studio.ai.dto.SessionInfo.builder()
+                        .sessionId(rs.getString("session_id"))
+                        .messageCount(rs.getInt("message_count"))
+                        .lastActiveTime(rs.getTimestamp("last_active_time").toLocalDateTime())
+                        .build(),
+                userId);
+
+        // 单独查询每条会话的第一条用户消息作为标题，避免 SQL 逗号截断问题
+        for (com.aron.studio.ai.dto.SessionInfo session : sessions) {
+            String titleSql = """
+                    SELECT content FROM ai_chat_history
+                    WHERE user_id = ? AND session_id = ? AND role = 'user'
+                    ORDER BY create_time ASC LIMIT 1
+                    """;
+            String firstMessage = jdbcTemplate.query(titleSql,
+                    (rs) -> rs.next() ? rs.getString("content") : null,
+                    userId, session.getSessionId());
+            session.setTitle(truncateTitle(firstMessage));
+        }
+        return sessions;
+    }
+
+    /**
+     * 获取某个会话的完整历史消息（结构化格式，用于前端展示）
+     */
+    public List<com.aron.studio.ai.dto.ChatMessage> getSessionMessages(Long userId, String sessionId) {
+        String sql = """
+                SELECT role, content, tool_name, create_time
+                FROM ai_chat_history
+                WHERE user_id = ? AND session_id = ?
+                ORDER BY create_time ASC
+                """;
+        return jdbcTemplate.query(sql,
+                (rs, rowNum) -> com.aron.studio.ai.dto.ChatMessage.builder()
+                        .role(rs.getString("role"))
+                        .content(rs.getString("content"))
+                        .toolName(rs.getString("tool_name"))
+                        .createTime(rs.getTimestamp("create_time").toLocalDateTime())
+                        .build(),
+                userId, sessionId);
+    }
+
+    /**
+     * 截取标题（取第一条用户消息的前20字）
+     */
+    private String truncateTitle(String message) {
+        if (message == null || message.isBlank()) {
+            return "新对话";
+        }
+        String trimmed = message.trim();
+        return trimmed.length() > 20 ? trimmed.substring(0, 20) + "..." : trimmed;
+    }
+
+    /**
      * 清空某个用户的会话历史
      */
     public void clearHistory(Long userId, String sessionId) {

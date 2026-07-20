@@ -55,8 +55,16 @@ public class SecurityConfig {
                 // 禁用 httpBasic（可选但推荐）
                 .httpBasic(basic -> basic.disable())
 
-                //权限规则, 登录 / 注册 / 验证码
-                .authorizeHttpRequests(auth -> auth.requestMatchers("/api/auth/**", "/error").permitAll().anyRequest().authenticated()).addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class).exceptionHandling(ex -> ex.authenticationEntryPoint((req, res, e) -> {
+                //权限规则
+                // 注意: /api/ai/** 的 SSE 流式接口(chat/stream)使用异步 dispatch,
+                // SecurityContext 在异步线程会丢失导致 AccessDenied.
+                // AiController 中已在同步线程通过 getCurrentUserId() 手动认证,
+                // 因此对 /api/ai/** 放行, 由 Controller 自行控制认证.
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/auth/**", "/api/ai/**", "/error").permitAll()
+                        .anyRequest().authenticated())
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling(ex -> ex.authenticationEntryPoint((req, res, e) -> {
                     log.error("未登录或登录已过期 | uri={} | method={} | msg={}", req.getRequestURI(), req.getMethod(), e.getMessage(), e);
                     res.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // url级别 401
                     res.setContentType("application/json;charset=UTF-8");
@@ -64,9 +72,8 @@ public class SecurityConfig {
                                 {"code":401,"msg":"未登录或登录已过期","success":false}
                             """);
                 }).accessDeniedHandler((req, res, e) -> {
-                    // AuthorizationDeniedException @PreAuthorize 抛出的 SC_FORBIDDEN
                     log.error("权限不足 | uri={} | method={} | msg={}", req.getRequestURI(), req.getMethod(), e.getMessage(), e);
-                    res.setStatus(HttpServletResponse.SC_FORBIDDEN); // 方法级别 403, 依赖于 GlobalExceptionHandler 未处理或者抛出
+                    res.setStatus(HttpServletResponse.SC_FORBIDDEN); // 方法级别 403
                     res.setContentType("application/json;charset=UTF-8");
                     res.getWriter().write("""
                                 {"code":403,"msg":"权限不足","success":false}
@@ -86,21 +93,4 @@ public class SecurityConfig {
         // 给过滤器 AuthorizationFilter 使用
         return http.build();
     }
-
-//    请求到来
-//   FilterChain (Security Filters)
-//    - AuthorizationFilter
-//    - ExceptionTranslationFilter
-//   调用 Controller（CGLIB 代理）
-//            - @PreAuthorize 检查
-//        - 授权失败，抛 AuthorizationDeniedException
-//   异常沿调用链传递：
-//          有 GlobalExceptionHandler (@RestControllerAdvice)
-//            handleException 捕获 - 返回自定义 JSON
-//          无 GlobalExceptionHandler
-//            - 异常回退到 FilterChain
-//            - ExceptionTranslationFilter 捕获
-//            - 调用 SecurityConfig.accessDeniedHandler - 返回自定义 403
-
-
 }

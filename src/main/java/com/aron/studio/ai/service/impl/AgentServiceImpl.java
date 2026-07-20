@@ -1,13 +1,14 @@
 package com.aron.studio.ai.service.impl;
 
-import com.aron.studio.ai.dto.AgentChatRequest;
-import com.aron.studio.ai.dto.AgentChatResponse;
+import com.aron.studio.ai.dto.*;
 import com.aron.studio.ai.memory.MemoryManager;
 import com.aron.studio.ai.service.AgentService;
 import com.aron.studio.ai.workflow.Workflow;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -27,20 +28,38 @@ public class AgentServiceImpl implements AgentService {
 
     @Override
     public AgentChatResponse chat(Long userId, AgentChatRequest request) {
-        // 如果没有 sessionId，自动生成
-        String sessionId = request.getSessionId();
-        if (sessionId == null || sessionId.trim().isEmpty()) {
-            sessionId = UUID.randomUUID().toString().replace("-", "");
-        }
-
+        String sessionId = resolveSessionId(request);
         log.info("AgentService.chat: userId={}, sessionId={}, message={}", userId, sessionId, request.getMessage());
-
-        // 执行工作流
         return workflow.execute(userId, sessionId, request.getMessage());
+    }
+
+    @Override
+    public Flux<AgentChatEvent> chatStream(Long userId, AgentChatRequest request) {
+        String sessionId = resolveSessionId(request);
+        log.info("AgentService.chatStream: userId={}, sessionId={}, message={}", userId, sessionId, request.getMessage());
+        return workflow.executeStream(userId, sessionId, request.getMessage());
+    }
+
+    @Override
+    public List<SessionInfo> getSessions(Long userId) {
+        return memoryManager.getSessions(userId);
+    }
+
+    @Override
+    public List<ChatMessage> getSessionMessages(Long userId, String sessionId) {
+        return memoryManager.getSessionMessages(userId, sessionId);
     }
 
     @Override
     public void clearHistory(Long userId, String sessionId) {
         memoryManager.clearHistory(userId, sessionId);
+    }
+
+    private String resolveSessionId(AgentChatRequest request) {
+        String sessionId = request.getSessionId();
+        if (sessionId == null || sessionId.trim().isEmpty()) {
+            sessionId = UUID.randomUUID().toString().replace("-", "");
+        }
+        return sessionId;
     }
 }

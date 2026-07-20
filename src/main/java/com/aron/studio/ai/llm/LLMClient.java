@@ -27,7 +27,7 @@ public class LLMClient {
      * @return LLM 返回的文本
      */
     public String chat(String prompt) {
-        log.debug("发送给LLM的Prompt长度: {} 字符", prompt.length());
+        log.info("发送给LLM的Prompt长度: {} 字符", prompt.length());
 
         ChatResponse response = chatClient.prompt()
                 .messages(new UserMessage(prompt))
@@ -35,7 +35,7 @@ public class LLMClient {
                 .chatResponse();
 
         String result = response.getResult().getOutput().getText();
-        log.debug("LLM返回结果长度: {} 字符, 返回：{}", result.length(), result);
+        log.info("LLM返回结果长度: {} 字符, 返回：{}", result.length(), result);
         return result;
     }
 }
