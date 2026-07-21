@@ -6,6 +6,7 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * LLM 客户端 - 封装与 DeepSeek 模型的交互
@@ -53,9 +54,13 @@ public class LLMClient {
                 .messages(new UserMessage(prompt))
                 .stream()
                 .chatResponse()
-                .map(response -> {
+                .flatMap(response -> {
                     String token = response.getResult().getOutput().getText();
-                    return token;
+                    // Spring AI 流式输出中某些 chunk 可能为空，需要过滤
+                    if (token == null || token.isEmpty()) {
+                        return Mono.empty();
+                    }
+                    return Mono.just(token);
                 })
                 .doOnComplete(() -> log.info("LLM流式输出完成"))
                 .doOnError(e -> log.error("LLM流式输出异常", e));

@@ -118,7 +118,7 @@ public class Workflow {
         return Flux.concat(
                 // 第1步：立即推送 THINK 事件
                 Flux.just(AgentChatEvent.builder()
-                        .type("THINK").data("正在理解问题并构建查询方案...")
+                        .type("THINK").data("正在理解问题并构建解决方案...")
                         .sessionId(sessionId).build()),
 
                 // 第2步：递归执行 LLM 调用循环（最多 MAX_ITERATIONS 轮）
@@ -139,7 +139,8 @@ public class Workflow {
         if (iteration >= MAX_ITERATIONS) {
             log.warn("Agent工作流(流式)超过最大迭代次数 {}, sessionId={}", MAX_ITERATIONS, sessionId);
             return Flux.just(AgentChatEvent.builder()
-                    .type("DONE").data("").sessionId(sessionId).build());
+                    .type("DONE").data(String.format("Agent工作流(流式)超过最大迭代次数 {}", MAX_ITERATIONS))
+                    .sessionId(sessionId).build());
         }
 
         final StringBuilder fullResponse = new StringBuilder();
@@ -197,7 +198,7 @@ public class Workflow {
                         // 正常回答完成
                         memoryManager.save(userId, sessionId, "assistant", completeText);
                         return Flux.just(AgentChatEvent.builder()
-                                .type("DONE").data("").sessionId(sessionId).build());
+                                .type("DONE").data("正常回答完成").sessionId(sessionId).build());
                     }
                 }).flatMapMany(flux -> flux))  // 展开 Flux<Flux<AgentChatEvent>>
                 .onErrorResume(e -> {
@@ -209,7 +210,7 @@ public class Workflow {
                                     .sessionId(sessionId)
                                     .build(),
                             AgentChatEvent.builder()
-                                    .type("DONE").data("").sessionId(sessionId).build()
+                                    .type("DONE").data("异常完成").sessionId(sessionId).build()
                     );
                 });
     }
