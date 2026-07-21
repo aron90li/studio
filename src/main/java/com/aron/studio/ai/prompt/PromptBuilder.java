@@ -1,5 +1,6 @@
 package com.aron.studio.ai.prompt;
 
+import com.aron.studio.ai.memory.HistoryCompressor;
 import com.aron.studio.ai.memory.MemoryManager;
 import com.aron.studio.ai.tools.ToolRegistry;
 import lombok.extern.slf4j.Slf4j;
@@ -9,7 +10,7 @@ import java.util.List;
 
 /**
  * 提示词构建器 - 负责构造发送给 LLM 的完整 Prompt
- * 组装顺序: SystemPrompt + History + ToolDescriptions + UserMessage
+ * 组装顺序: SystemPrompt + History(压缩后) + ToolDescriptions + UserMessage
  */
 @Slf4j
 @Component
@@ -47,10 +48,13 @@ public class PromptBuilder {
 
     private final ToolRegistry toolRegistry;
     private final MemoryManager memoryManager;
+    private final HistoryCompressor historyCompressor;
 
-    public PromptBuilder(ToolRegistry toolRegistry, MemoryManager memoryManager) {
+    public PromptBuilder(ToolRegistry toolRegistry, MemoryManager memoryManager,
+                         HistoryCompressor historyCompressor) {
         this.toolRegistry = toolRegistry;
         this.memoryManager = memoryManager;
+        this.historyCompressor = historyCompressor;
     }
 
     /**
@@ -65,20 +69,19 @@ public class PromptBuilder {
         // 2. 工具描述
         prompt.append("【工具信息】\n").append(toolRegistry.buildToolDescriptions()).append("\n");
 
-        // 3. 历史消息
+        // 3. 历史对话（通过压缩器处理，长对话自动压缩为摘要）
         List<String> history = memoryManager.getHistory(userId, sessionId);
-        if (!history.isEmpty()) {
+        String compressedHistory = historyCompressor.compress(history);
+        if (!compressedHistory.isEmpty()) {
             prompt.append("【历史对话】\n");
-            for (String msg : history) {
-                prompt.append(msg).append("\n");
-            }
-            prompt.append("\n");
+            prompt.append(compressedHistory).append("\n");
         }
 
         // 4. 用户消息
         prompt.append("【用户消息】\n").append(userMessage).append("\n");
 
         log.debug("构建Prompt完成，长度: {} 字符", prompt.length());
+        log.debug("Prompt内容：{}", prompt);
         return prompt.toString();
     }
 
