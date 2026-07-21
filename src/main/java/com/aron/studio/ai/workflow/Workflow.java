@@ -9,6 +9,7 @@ import com.aron.studio.ai.tools.ToolRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -99,80 +100,118 @@ public class Workflow {
     }
 
     /**
-     * 流式执行 Agent 工作流 - 逐步推送事件
+     * 流式执行 Agent 工作流 - 通过 SSE 逐步推送事件
+     * <p>
+     * 流程：
+     * 1. 立即推送 THINK 事件
+     * 2. 调用 LLM 流式接口，每个 token 作为一个 ANSWER 事件即时发出
+     * 3. 如果 LLM 返回 TOOL_CALL，推送 TOOL_CALL → TOOL_RESULT → 递归
+     * 4. 完成时推送 DONE 事件
      */
     public Flux<AgentChatEvent> executeStream(Long userId, String sessionId, String userMessage) {
         log.info("开始执行Agent工作流(流式), userId={}, sessionId={}", userId, sessionId);
 
-        return Flux.create(sink -> {
-            try {
-                memoryManager.save(userId, sessionId, "user", userMessage);
+        memoryManager.save(userId, sessionId, "user", userMessage);
 
-                // 推送 THINK 事件
-                sink.next(AgentChatEvent.builder()
+        String initialPrompt = promptBuilder.buildPrompt(userId, sessionId, userMessage);
+
+        return Flux.concat(
+                // 第1步：立即推送 THINK 事件
+                Flux.just(AgentChatEvent.builder()
                         .type("THINK").data("正在理解问题并构建查询方案...")
-                        .sessionId(sessionId).build());
+                        .sessionId(sessionId).build()),
 
-                String currentPrompt = promptBuilder.buildPrompt(userId, sessionId, userMessage);
-                String lastLlmResponse = null;
+                // 第2步：递归执行 LLM 调用循环（最多 MAX_ITERATIONS 轮）
+                executeStreamLoop(userId, sessionId, initialPrompt, 0)
+        );
+    }
 
-                for (int i = 0; i < MAX_ITERATIONS; i++) {
-                    String llmResponse = llmClient.chat(currentPrompt);
-                    lastLlmResponse = llmResponse;
+    /**
+     * 递归执行流式 Agent 循环
+     * <p>
+     * 关键设计：将 LLM 流式输出的 token 收集到 StringBuilder 中，
+     * 同时每个 token 立即包装为 ANSWER 事件发出，给前端打字机效果。
+     * 等 LLM 流结束（onComplete）后再判断是否有 TOOL_CALL。
+     * 如果有 TOOL_CALL，递归调用；如果没有，发出 DONE 事件。
+     */
+    private Flux<AgentChatEvent> executeStreamLoop(Long userId, String sessionId,
+                                                   String prompt, int iteration) {
+        if (iteration >= MAX_ITERATIONS) {
+            log.warn("Agent工作流(流式)超过最大迭代次数 {}, sessionId={}", MAX_ITERATIONS, sessionId);
+            return Flux.just(AgentChatEvent.builder()
+                    .type("DONE").data("").sessionId(sessionId).build());
+        }
 
-                    Matcher matcher = TOOL_CALL_PATTERN.matcher(llmResponse);
+        final StringBuilder fullResponse = new StringBuilder();
+
+        // 调用 LLM 流式接口：每个 token 作为 ANSWER 事件发出，同时收集完整文本
+        return llmClient.chatStream(prompt)
+                .map(token -> {
+                    // 去除首尾空白，但保留有效 token
+                    fullResponse.append(token);
+                    return AgentChatEvent.builder()
+                            .type("ANSWER")
+                            .data(token)
+                            .sessionId(sessionId)
+                            .build();
+                })
+                // 流结束后，判断完整文本是否包含工具调用
+                .concatWith(Mono.fromCallable(() -> {
+                    String completeText = fullResponse.toString();
+                    Matcher matcher = TOOL_CALL_PATTERN.matcher(completeText);
+
                     if (matcher.find()) {
                         String toolName = matcher.group(1).trim();
                         String toolArgs = matcher.group(2).trim();
 
-                        // 推送 TOOL_CALL 事件
-                        sink.next(AgentChatEvent.builder()
-                                .type("TOOL_CALL").data("调用工具: " + toolName)
-                                .sessionId(sessionId).toolName(toolName).build());
-
+                        log.info("检测到TOOL_CALL: toolName={}, toolArgs={}", toolName, toolArgs);
                         memoryManager.save(userId, sessionId, "assistant",
                                 "TOOL_CALL: " + toolName + "\nARGS: " + toolArgs, toolName, toolArgs);
 
                         String toolResult = executeTool(toolName, toolArgs);
-
-                        // 推送 TOOL_RESULT 事件
-                        sink.next(AgentChatEvent.builder()
-                                .type("TOOL_RESULT").data(toolResult)
-                                .sessionId(sessionId).toolName(toolName).build());
-
                         memoryManager.save(userId, sessionId, "tool", toolResult, toolName, toolArgs);
-                        currentPrompt = promptBuilder.buildPromptWithToolResult(
-                                sessionId, currentPrompt, toolName, toolResult);
+
+                        String newPrompt = promptBuilder.buildPromptWithToolResult(
+                                sessionId, prompt, toolName, toolResult);
+
+                        // 返回 TOOL_CALL + TOOL_RESULT 事件，然后递归下一轮
+                        // 通过 Flux.defer 延迟创建，避免递归栈溢出
+                        return Flux.concat(
+                                Flux.just(
+                                        AgentChatEvent.builder()
+                                                .type("TOOL_CALL")
+                                                .data("调用工具: " + toolName)
+                                                .sessionId(sessionId)
+                                                .toolName(toolName)
+                                                .build(),
+                                        AgentChatEvent.builder()
+                                                .type("TOOL_RESULT")
+                                                .data(toolResult)
+                                                .sessionId(sessionId)
+                                                .toolName(toolName)
+                                                .build()
+                                ),
+                                executeStreamLoop(userId, sessionId, newPrompt, iteration + 1)
+                        );
                     } else {
-                        // 推送 ANSWER 事件
-                        sink.next(AgentChatEvent.builder()
-                                .type("ANSWER").data(llmResponse)
-                                .sessionId(sessionId).build());
-
-                        memoryManager.save(userId, sessionId, "assistant", llmResponse);
-                        sink.next(AgentChatEvent.builder().type("DONE").data("")
-                                .sessionId(sessionId).build());
-                        sink.complete();
-                        return;
+                        // 正常回答完成
+                        memoryManager.save(userId, sessionId, "assistant", completeText);
+                        return Flux.just(AgentChatEvent.builder()
+                                .type("DONE").data("").sessionId(sessionId).build());
                     }
-                }
-
-                // 超过最大迭代次数
-                if (lastLlmResponse != null) {
-                    memoryManager.save(userId, sessionId, "assistant", lastLlmResponse);
-                    sink.next(AgentChatEvent.builder().type("ANSWER").data(lastLlmResponse)
-                            .sessionId(sessionId).build());
-                }
-                sink.next(AgentChatEvent.builder().type("DONE").data("").sessionId(sessionId).build());
-                sink.complete();
-
-            } catch (Exception e) {
-                log.error("Agent工作流(流式)异常", e);
-                sink.next(AgentChatEvent.builder().type("ERROR")
-                        .data("处理异常: " + e.getMessage()).sessionId(sessionId).build());
-                sink.error(e);
-            }
-        });
+                }).flatMapMany(flux -> flux))  // 展开 Flux<Flux<AgentChatEvent>>
+                .onErrorResume(e -> {
+                    log.error("Agent工作流(流式)异常, sessionId={}", sessionId, e);
+                    return Flux.just(
+                            AgentChatEvent.builder()
+                                    .type("ERROR")
+                                    .data("处理异常: " + e.getMessage())
+                                    .sessionId(sessionId)
+                                    .build(),
+                            AgentChatEvent.builder()
+                                    .type("DONE").data("").sessionId(sessionId).build()
+                    );
+                });
     }
 
     private String executeTool(String toolName, String args) {

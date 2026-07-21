@@ -5,6 +5,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
 /**
  * LLM 客户端 - 封装与 DeepSeek 模型的交互
@@ -21,7 +22,7 @@ public class LLMClient {
     }
 
     /**
-     * 发送消息给 LLM 并获取回复
+     * 发送消息给 LLM 并获取回复（阻塞）
      *
      * @param prompt 完整的提示词
      * @return LLM 返回的文本
@@ -37,5 +38,26 @@ public class LLMClient {
         String result = response.getResult().getOutput().getText();
         log.info("LLM返回结果长度: {} 字符, 返回：{}", result.length(), result);
         return result;
+    }
+
+    /**
+     * 发送消息给 LLM 并获取流式回复（逐 token 推送）
+     *
+     * @param prompt 完整的提示词
+     * @return 逐 token 推送的 Flux<String>
+     */
+    public Flux<String> chatStream(String prompt) {
+        log.info("发送给LLM的Prompt长度(流式): {} 字符", prompt.length());
+
+        return chatClient.prompt()
+                .messages(new UserMessage(prompt))
+                .stream()
+                .chatResponse()
+                .map(response -> {
+                    String token = response.getResult().getOutput().getText();
+                    return token;
+                })
+                .doOnComplete(() -> log.info("LLM流式输出完成"))
+                .doOnError(e -> log.error("LLM流式输出异常", e));
     }
 }

@@ -78,7 +78,7 @@ public class PromptBuilder {
         // 4. 用户消息
         prompt.append("【用户消息】\n").append(userMessage).append("\n");
 
-        log.debug("构建Prompt完成，长度: {} 字符，内容：{}", prompt.length(), prompt);
+        log.debug("构建Prompt完成，长度: {} 字符", prompt.length());
         return prompt.toString();
     }
 
