@@ -29,21 +29,28 @@ public class PromptBuilder {
             6. 如果信息足够，给出最终回答
             
             ## 工具调用规则
-            - 一次只能调用一个工具，不要同时调用多个
-            - 调用工具后等待结果返回再决定下一步
+            - 如果需要同一类信息，可以同时声明多个工具调用，系统会依次执行
+            - 需要串行依赖的工具调用请分多轮进行（先调用工具A获取结果，再根据结果决定是否调用工具B）
             - 如果一次查询结果不全，可以调整参数再次查询
-            - 如果需要，可以按顺序调用多个不同的工具来完成复杂任务
             
-            ## 工具调用格式
-            当你需要调用工具时，必须严格按照以下格式返回：
+            ## 工具调用格式（必须严格遵守，否则无法识别）
+            当需要调用工具时，在回答的最末尾按以下格式声明（TOOL_CALL 和 ARGS 都必须在行首，不能有缩进）：
+            
             TOOL_CALL: 工具名称
             ARGS: {"参数名": "参数值"}
+            
+            如需调用多个工具，连续声明即可：
+            TOOL_CALL: 工具A
+            ARGS: {"参数A": "值A"}
+            TOOL_CALL: 工具B
+            ARGS: {"参数B": "值B"}
             
             ## 回答要求
             - 始终用中文回答用户
             - 如实汇报工具的执行结果，不编造数据
             - 工具返回错误时，分析可能的原因并给出建议
             - 回答简洁清晰，突出关键信息
+            - 如果不需要调用工具直接回答，请不要在回答中包含 TOOL_CALL 格式文本
             """;
 
     private final ToolRegistry toolRegistry;
@@ -86,16 +93,18 @@ public class PromptBuilder {
     }
 
     /**
-     * 构建带工具结果的 Prompt（LLM 返回工具调用后，将执行结果拼回）
+     * 构建带工具结果的 Prompt（支持多个工具调用结果，一次性拼回）
+     *
+     * @param originalPrompt 原始 Prompt
+     * @param allResults     所有工具执行结果（已格式化）
+     * @return 拼接后的完整 Prompt
      */
-    public String buildPromptWithToolResult(String sessionId, String originalPrompt,
-                                             String toolName, String toolResult) {
+    public String buildPromptWithToolResults(String originalPrompt, String allResults) {
         StringBuilder prompt = new StringBuilder(originalPrompt);
 
         prompt.append("\n【工具执行结果】\n");
-        prompt.append("工具: ").append(toolName).append("\n");
-        prompt.append("结果: ").append(toolResult).append("\n");
-        prompt.append("\n请根据以上工具执行结果，回答用户的问题。\n");
+        prompt.append(allResults).append("\n");
+        prompt.append("请根据以上工具执行结果，继续回答用户的问题。如果结果已足够，给出最终回答。\n");
 
         return prompt.toString();
     }
