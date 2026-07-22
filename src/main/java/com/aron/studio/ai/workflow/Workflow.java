@@ -90,7 +90,8 @@ public class Workflow {
                     memoryManager.save(userId, sessionId, "assistant", cleanText);
                 }
 
-                // 顺序执行所有工具调用
+                // 顺序执行所有工具调用，记录结果（避免重复执行）
+                java.util.LinkedHashMap<String, String> toolResults = new java.util.LinkedHashMap<>();
                 for (ToolCall tc : toolCalls) {
                     thoughts.add(AgentChatResponse.ThoughtStep.builder()
                             .type("TOOL_CALL").toolName(tc.toolName)
@@ -105,11 +106,12 @@ public class Workflow {
                             .type("TOOL_RESULT").toolName(tc.toolName).content(toolResult).build());
 
                     memoryManager.save(userId, sessionId, "tool", toolResult, tc.toolName, tc.toolArgs);
+                    toolResults.put(tc.toolName, toolResult);
                 }
 
-                // 将所有工具结果拼接后反馈给 LLM
-                String allResults = toolCalls.stream()
-                        .map(tc -> "工具 " + tc.toolName + " 结果: " + executeTool(tc.toolName, tc.toolArgs))
+                // 将所有工具结果拼接后反馈给 LLM（复用已执行的结果）
+                String allResults = toolResults.entrySet().stream()
+                        .map(e -> "工具 " + e.getKey() + " 结果: " + e.getValue())
                         .collect(Collectors.joining("\n"));
                 currentPrompt = promptBuilder.buildPromptWithToolResults(
                         currentPrompt, allResults);

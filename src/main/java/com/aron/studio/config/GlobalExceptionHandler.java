@@ -41,6 +41,7 @@ public class GlobalExceptionHandler {
         // 如果是 ClientAbortException 的包装异常，也按 INFO 处理
         if (isClientAbortException(e)) {
             log.info("客户端主动断开连接(包装异常) | uri={} | method={} | msg={}", request.getRequestURI(), request.getMethod(), e.getMessage());
+            log.error(e.getMessage(), e);
             return null;
         }
         log.error("系统异常 | uri={} | method={} | msg={}", request.getRequestURI(), request.getMethod(), e.getMessage(), e);
