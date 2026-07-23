@@ -1,5 +1,5 @@
 ===========================================================================
- AI Agent 后端 - Spring AI + DeepSeek + Tool Calling + Memory
+ AI Agent 后端 - Spring AI + OpenAI Compatible + Tool Calling + Memory
 ===========================================================================
 
 一、整体架构
@@ -16,7 +16,7 @@ Workflow (ReAct 工作流引擎，循环：LLM调用 → 工具执行 → LLM调
    ├── PromptBuilder  - 拼接 SystemPrompt + History + Tool描述 + User消息
    ├── MemoryManager  - 对话历史持久化（存储到 ai_chat_history 表）
    ├── ToolRegistry   - 工具注册中心（管理所有 AgentTool）
-   ├── LLMClient      - DeepSeek 模型客户端
+    ├── LLMClient      - LLM 模型客户端（OpenAI 兼容协议）
    ├── MCPClient      - MCP 服务客户端（预留扩展）
    └── ReactAgent     - ReAct Agent 封装
 
@@ -31,7 +31,7 @@ Workflow (ReAct 工作流引擎，循环：LLM调用 → 工具执行 → LLM调
    ├── dto/
    │   ├── AgentChatRequest.java   - 聊天请求
    │   └── AgentChatResponse.java  - 聊天响应（含思考过程）
-   ├── llm/LLMClient.java          - DeepSeek LLM 调用封装
+    ├── llm/LLMClient.java          - LLM 调用封装（OpenAI 兼容协议）
    ├── mcp/MCPClient.java          - MCP 客户端（预留）
    ├── memory/
    │   ├── MemoryManager.java      - 对话历史管理
@@ -104,5 +104,5 @@ DELETE /api/ai/chat/{sessionId}  - 清空会话历史
 七、配置说明
 
 application.yaml 中:
-  spring.ai.deepseek.api-key: 设置 DeepSeek API Key
-  spring.ai.deepseek.chat.options.model: deepseek-chat
+  spring.ai.openai.api-key: 设置 API Key（兼容 OpenAI 协议）
+  spring.ai.openai.chat.model: qwen-plus（或其他兼容 OpenAI 协议的模型）

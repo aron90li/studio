@@ -9,7 +9,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
- * LLM 客户端 - 封装与 DeepSeek 模型的交互
+ * LLM 客户端 - 封装与大语言模型的交互（通过 OpenAI 兼容协议）
  */
 @Slf4j
 @Component
