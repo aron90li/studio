@@ -13,6 +13,15 @@ import reactor.core.publisher.Flux;
 public interface ChatServiceV2 {
 
     /**
+     * 阻塞聊天 — 同步等待完整回答后返回
+     *
+     * @param userId  当前用户ID
+     * @param request 聊天请求
+     * @return 完整的回答文本
+     */
+    String chat(Long userId, AgentChatRequest request);
+
+    /**
      * 流式聊天 — 使用 Spring AI 2.0 ToolCallback 自动处理工具调用
      *
      * @param userId  当前用户ID

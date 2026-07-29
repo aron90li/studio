@@ -1,6 +1,7 @@
 package com.aron.studio;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.sql.init.DatabaseInitializationMode;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -20,6 +21,8 @@ public class CommonTest {
     public void testLong() {
         Long a = 295477017317609472L;
 
+        Object o = Enum.valueOf(DatabaseInitializationMode.class, "ALWAYS");
+        System.out.println("ok");
     }
 
 

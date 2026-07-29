@@ -67,6 +67,26 @@ public class AiController {
         return agentService.chatStream(userId, request);
     }
 
+    // ==================== 阻塞聊天 V2（Spring AI 2.0 原生 Tool Calling） ====================
+
+    /**
+     * POST /api/ai/chat2
+     * 与 AI Agent 对话（V2 阻塞），使用 Spring AI 2.0 原生 Tool Calling 机制
+     * 同步等待完整回答后返回
+     */
+    @PostMapping("/chat2")
+    public Response<AgentChatResponse> chat2(@RequestBody AgentChatRequest request) {
+        Long userId = getCurrentUserId();
+        log.info("收到AI聊天请求(阻塞V2-Spring AI 2.0): userId={}, message={}", userId, request.getMessage());
+        String answer = chatServiceV2.chat(userId, request);
+        AgentChatResponse response = AgentChatResponse.builder()
+                .answer(answer)
+                .sessionId(request.getSessionId())
+                .finished(true)
+                .build();
+        return Response.success(response);
+    }
+
     // ==================== 流式聊天 V2（Spring AI 2.0 原生 Tool Calling） ====================
 
     /**

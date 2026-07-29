@@ -1,0 +1,18 @@
+{
+  "model": "deepseek-v4-pro",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a helpful assistant."
+    },
+    {
+      "role": "user",
+      "content": "介绍三国演义这本小说"
+    }
+  ],
+  "thinking": {
+    "type": "enabled"
+  },
+  "reasoning_effort": "high",
+  "stream": false
+}

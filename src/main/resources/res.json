@@ -1,0 +1,102 @@
+{
+  "metadata": {
+    "empty": true,
+    "id": "5c45c142-a7a0-4e9d-a3f4-09682bfa1983",
+    "model": "deepseek-v4-pro",
+    "promptMetadata": [],
+    "rateLimit": {
+      "requestsLimit": 0,
+      "requestsRemaining": 0,
+      "requestsReset": "PT0S",
+      "tokensLimit": 0,
+      "tokensRemaining": 0,
+      "tokensReset": "PT0S"
+    },
+    "usage": {
+      "promptTokens": 2080,
+      "completionTokens": 229,
+      "totalTokens": 2309,
+      "cacheReadInputTokens": null,
+      "cacheWriteInputTokens": null,
+      "nativeUsage": {
+        "promptTokens": 2080,
+        "totalTokens": 2309,
+        "completionTokens": 229
+      }
+    }
+  },
+  "result": {
+    "metadata": {
+      "contentFilters": [],
+      "empty": true,
+      "finishReason": "TOOL_CALLS"
+    },
+    "output": {
+      "media": [],
+      "messageType": "ASSISTANT",
+      "metadata": {
+        "role": "assistant",
+        "messageType": "ASSISTANT",
+        "refusal": "",
+        "finishReason": "TOOL_CALLS",
+        "index": 0,
+        "annotations": [],
+        "id": "5c45c142-a7a0-4e9d-a3f4-09682bfa1983",
+        "reasoningContent": ""
+      },
+      "text": "找到了！之前是日期序列化的问题导致数据没显示出来。让我重新查询完整的订单详情（排除时间字段避免序列化问题）：",
+      "toolCalls": [
+        {
+          "id": "call_00_LE19MFR1jH8ZCa0agGZ11031",
+          "type": "function",
+          "name": "mysqlQuery",
+          "arguments": "{\"sql\": \"SELECT id, order_no, user_name, product_name, quantity, total_amount, status FROM demo_order WHERE user_name = '张三'\"}"
+        },
+        {
+          "id": "call_01_18uzoxe5M2CtiKjllM8z6747",
+          "type": "function",
+          "name": "mysqlQuery",
+          "arguments": "{\"sql\": \"SELECT id, name, age, email, phone, status FROM demo_user WHERE name = '张三'\"}"
+        }
+      ]
+    }
+  },
+  "results": [
+    {
+      "metadata": {
+        "contentFilters": [],
+        "empty": true,
+        "finishReason": "TOOL_CALLS"
+      },
+      "output": {
+        "media": [],
+        "messageType": "ASSISTANT",
+        "metadata": {
+          "role": "assistant",
+          "messageType": "ASSISTANT",
+          "refusal": "",
+          "finishReason": "TOOL_CALLS",
+          "index": 0,
+          "annotations": [],
+          "id": "5c45c142-a7a0-4e9d-a3f4-09682bfa1983",
+          "reasoningContent": ""
+        },
+        "text": "找到了！之前是日期序列化的问题导致数据没显示出来。让我重新查询完整的订单详情（排除时间字段避免序列化问题）：",
+        "toolCalls": [
+          {
+            "id": "call_00_LE19MFR1jH8ZCa0agGZ11031",
+            "type": "function",
+            "name": "mysqlQuery",
+            "arguments": "{\"sql\": \"SELECT id, order_no, user_name, product_name, quantity, total_amount, status FROM demo_order WHERE user_name = '张三'\"}"
+          },
+          {
+            "id": "call_01_18uzoxe5M2CtiKjllM8z6747",
+            "type": "function",
+            "name": "mysqlQuery",
+            "arguments": "{\"sql\": \"SELECT id, name, age, email, phone, status FROM demo_user WHERE name = '张三'\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

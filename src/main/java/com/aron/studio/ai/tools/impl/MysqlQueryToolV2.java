@@ -1,15 +1,12 @@
 package com.aron.studio.ai.tools.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.aron.studio.ai.dto.MysqlQueryResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -29,9 +26,6 @@ public class MysqlQueryToolV2 {
 
     private final JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
     public MysqlQueryToolV2(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
@@ -43,64 +37,31 @@ public class MysqlQueryToolV2 {
      * @return JSON 结构化查询结果，格式为 {"count": N, "data": [...]}
      */
     @Tool(description = "执行MySQL查询，参数格式：{\"sql\": \"SELECT * FROM user WHERE name = '张三'\"}。"
-            + "可以查询任何数据库表。查询结果以JSON结构化形式返回，格式为{\"count\":记录数, \"data\":[数据数组]}。"
+            + "可以查询任何数据库表。查询结果以结构化形式返回，包含 count(记录数)、data(数据数组)、error(错误信息)。"
             + "注意：只允许执行 SELECT 查询，不允许修改数据。")
-    public String mysqlQuery(
+    public MysqlQueryResult mysqlQuery(
             @ToolParam(description = "要执行的 SQL SELECT 查询语句") String sql) {
 
         if (sql == null || sql.trim().isEmpty()) {
-            return buildErrorResult("缺少 sql 参数");
+            return MysqlQueryResult.error("缺少 sql 参数");
         }
 
-        // 安全检查：只允许 SELECT
+        // 安全检查：只允许 SELECT / SHOW / DESC / EXPLAIN
         String trimmedSql = sql.trim().toUpperCase();
         if (!trimmedSql.startsWith("SELECT")
                 && !trimmedSql.startsWith("SHOW")
                 && !trimmedSql.startsWith("DESC")
                 && !trimmedSql.startsWith("EXPLAIN")) {
-            return buildErrorResult("只允许执行 SELECT / SHOW / DESC / EXPLAIN 查询");
+            return MysqlQueryResult.error("只允许执行 SELECT / SHOW / DESC / EXPLAIN 查询");
         }
 
         log.info("MysqlQueryToolV2 执行SQL: {}", sql);
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
-
-        return buildSuccessResult(rows);
-    }
-
-    /**
-     * 构建成功结果的 JSON 字符串
-     *
-     * @param rows 查询结果行列表
-     * @return JSON 格式字符串 {"count": N, "data": [...]}
-     */
-    private String buildSuccessResult(List<Map<String, Object>> rows) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("count", rows.size());
-        result.put("data", rows);
         try {
-            return objectMapper.writeValueAsString(result);
-        } catch (JsonProcessingException e) {
-            log.error("序列化查询结果失败", e);
-            return buildErrorResult("序列化查询结果失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 构建错误结果的 JSON 字符串
-     *
-     * @param message 错误信息
-     * @return JSON 格式字符串 {"count": 0, "data": [], "error": "错误信息"}
-     */
-    private String buildErrorResult(String message) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("count", 0);
-        result.put("data", List.of());
-        result.put("error", message);
-        try {
-            return objectMapper.writeValueAsString(result);
-        } catch (JsonProcessingException e) {
-            log.error("序列化错误结果失败", e);
-            return "{\"count\":0,\"data\":[],\"error\":\"" + message + "\"}";
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+            return MysqlQueryResult.success(rows);
+        } catch (Exception e) {
+            log.error("查询执行失败", e);
+            return MysqlQueryResult.error("查询执行失败: " + e.getMessage());
         }
     }
 }

@@ -1,0 +1,102 @@
+{
+  "metadata": {
+    "empty": true,
+    "id": "8ddb28eb-4a84-4a90-b5c4-cb9b53ae8d27",
+    "model": "deepseek-v4-pro",
+    "promptMetadata": [],
+    "rateLimit": {
+      "requestsLimit": 0,
+      "requestsRemaining": 0,
+      "requestsReset": "PT0S",
+      "tokensLimit": 0,
+      "tokensRemaining": 0,
+      "tokensReset": "PT0S"
+    },
+    "usage": {
+      "promptTokens": 711,
+      "completionTokens": 143,
+      "totalTokens": 854,
+      "cacheReadInputTokens": null,
+      "cacheWriteInputTokens": null,
+      "nativeUsage": {
+        "promptTokens": 711,
+        "totalTokens": 854,
+        "completionTokens": 143
+      }
+    }
+  },
+  "result": {
+    "metadata": {
+      "contentFilters": [],
+      "empty": true,
+      "finishReason": "TOOL_CALLS"
+    },
+    "output": {
+      "media": [],
+      "messageType": "ASSISTANT",
+      "metadata": {
+        "role": "assistant",
+        "messageType": "ASSISTANT",
+        "refusal": "",
+        "finishReason": "TOOL_CALLS",
+        "annotations": [],
+        "index": 0,
+        "id": "8ddb28eb-4a84-4a90-b5c4-cb9b53ae8d27",
+        "reasoningContent": ""
+      },
+      "text": "找到了 `demo_user`（用户表）和 `demo_order`（订单表），让我查看它们的结构。",
+      "toolCalls": [
+        {
+          "id": "call_00_VjtTq1jSoLSBxFPNs4sq7556",
+          "type": "function",
+          "name": "mysqlQuery",
+          "arguments": "{\"sql\": \"DESCRIBE demo_user\"}"
+        },
+        {
+          "id": "call_01_dPViogdrMD6r2EbFzIMm9721",
+          "type": "function",
+          "name": "mysqlQuery",
+          "arguments": "{\"sql\": \"DESCRIBE demo_order\"}"
+        }
+      ]
+    }
+  },
+  "results": [
+    {
+      "metadata": {
+        "contentFilters": [],
+        "empty": true,
+        "finishReason": "TOOL_CALLS"
+      },
+      "output": {
+        "media": [],
+        "messageType": "ASSISTANT",
+        "metadata": {
+          "role": "assistant",
+          "messageType": "ASSISTANT",
+          "refusal": "",
+          "finishReason": "TOOL_CALLS",
+          "annotations": [],
+          "index": 0,
+          "id": "8ddb28eb-4a84-4a90-b5c4-cb9b53ae8d27",
+          "reasoningContent": ""
+        },
+        "text": "找到了 `demo_user`（用户表）和 `demo_order`（订单表），让我查看它们的结构。",
+        "toolCalls": [
+          {
+            "id": "call_00_VjtTq1jSoLSBxFPNs4sq7556",
+            "type": "function",
+            "name": "mysqlQuery",
+            "arguments": "{\"sql\": \"DESCRIBE demo_user\"}"
+          },
+          {
+            "id": "call_01_dPViogdrMD6r2EbFzIMm9721",
+            "type": "function",
+            "name": "mysqlQuery",
+            "arguments": "{\"sql\": \"DESCRIBE demo_order\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

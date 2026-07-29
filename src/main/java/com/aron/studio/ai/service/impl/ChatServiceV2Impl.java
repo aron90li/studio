@@ -3,11 +3,13 @@ package com.aron.studio.ai.service.impl;
 import com.aron.studio.ai.dto.AgentChatEvent;
 import com.aron.studio.ai.dto.AgentChatRequest;
 import com.aron.studio.ai.service.ChatServiceV2;
+import com.aron.studio.ai.tools.impl.MysqlQueryToolV2;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -43,6 +45,9 @@ public class ChatServiceV2Impl implements ChatServiceV2 {
 
     private final ChatClient chatClient;
 
+    @Autowired
+    private MysqlQueryToolV2 mysqlQueryToolV2;
+
     public ChatServiceV2Impl(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory) {
 
         this.chatClient = chatClientBuilder
@@ -50,9 +55,43 @@ public class ChatServiceV2Impl implements ChatServiceV2 {
                         new SimpleLoggerAdvisor(),
                         MessageChatMemoryAdvisor.builder(chatMemory).build()
                 )
-                .defaultSystem("")
-
+                .defaultSystem("""
+                        你是FlinkStudio智能助手。
+                        
+                        你擅长:
+                        - Flink SQL
+                        - Kafka
+                        - Paimon
+                        - Kubernetes
+                        - MySQL
+                        - Redis
+                        - Spark
+                        
+                        如果需要查询外部数据，使用提供的工具。
+                        """)
                 .build();
+    }
+
+    @Override
+    public String chat(Long userId, AgentChatRequest request) {
+        String sessionId = resolveSessionId(request);
+        String userMessage = request.getMessage();
+        log.info("ChatServiceV2.chat: userId={}, sessionId={}, message={}", userId, sessionId, userMessage);
+
+        try {
+            String result = chatClient.prompt()
+                    .advisors(advisorSpec -> advisorSpec.param(
+                            ChatMemory.CONVERSATION_ID, sessionId))
+                    .user(userMessage)
+                    .tools(mysqlQueryToolV2)
+                    .call()
+                    .content();
+            log.info("ChatServiceV2.chat 完成, sessionId={}", sessionId);
+            return result;
+        } catch (Exception e) {
+            log.error("ChatServiceV2.chat 异常, sessionId={}", sessionId, e);
+            return "处理异常: " + e.getMessage();
+        }
     }
 
     @Override
@@ -68,11 +107,11 @@ public class ChatServiceV2Impl implements ChatServiceV2 {
                         .data("正在使用 Spring AI 2.0 原生 Tool Calling 处理请求...")
                         .sessionId(sessionId)
                         .build()),
-
-                chatClient.prompt() // chatMemory 会拦截这个方法
+                chatClient.prompt()
                         .advisors(advisorSpec -> advisorSpec.param(
                                 ChatMemory.CONVERSATION_ID, sessionId))
                         .user(userMessage)
+                        .tools(mysqlQueryToolV2)
                         .stream()
                         .chatResponse()
                         .flatMap(response -> {
