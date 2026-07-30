@@ -132,20 +132,24 @@ public class AiController {
 
     @GetMapping("/api/ai/v2/sessions")
     public Response<List<SessionInfo>> getSessionsV2() {
-        // todo
-        return null;
+        Long userId = getCurrentUserId();
+        log.info("查询用户会话列表V2: userId={}", userId);
+        return Response.success(chatService.getSessions(userId));
     }
 
     @GetMapping("/api/ai/v2/sessions/{sessionId}")
     public Response<List<ChatMessage>> getSessionMessagesV2(@PathVariable String sessionId) {
-        // todo
-        return null;
+        Long userId = getCurrentUserId();
+        log.info("查询会话消息V2: userId={}, sessionId={}", userId, sessionId);
+        return Response.success(chatService.getSessionMessages(userId, sessionId));
     }
 
     @DeleteMapping("/api/ai/v2/sessions/{sessionId}")
     public Response<Void> clearHistoryV2(@PathVariable String sessionId) {
-        // todo
-        return null;
+        Long userId = getCurrentUserId();
+        log.info("清空会话历史V2: userId={}, sessionId={}", userId, sessionId);
+        chatService.clearHistory(userId, sessionId);
+        return Response.success();
     }
 
 }

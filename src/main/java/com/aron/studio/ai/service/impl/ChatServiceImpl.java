@@ -4,6 +4,7 @@ import com.aron.studio.ai.dto.AgentChatEvent;
 import com.aron.studio.ai.dto.AgentChatRequest;
 import com.aron.studio.ai.dto.ChatMessage;
 import com.aron.studio.ai.dto.SessionInfo;
+import com.aron.studio.ai.memory.MemoryManagerV2;
 import com.aron.studio.ai.service.ChatService;
 import com.aron.studio.ai.tools.impl.MysqlQueryToolV2;
 import lombok.extern.slf4j.Slf4j;
@@ -51,7 +52,10 @@ public class ChatServiceImpl implements ChatService {
     @Autowired
     private MysqlQueryToolV2 mysqlQueryToolV2;
 
-    public ChatServiceImpl(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory) {
+    private final MemoryManagerV2 memoryManagerV2;
+
+    public ChatServiceImpl(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory, MemoryManagerV2 memoryManagerV2) {
+        this.memoryManagerV2 = memoryManagerV2;
 
         this.chatClient = chatClientBuilder
                 .defaultAdvisors(
@@ -81,6 +85,9 @@ public class ChatServiceImpl implements ChatService {
         String userMessage = request.getMessage();
         log.info("ChatService.chat: userId={}, sessionId={}, message={}", userId, sessionId, userMessage);
 
+        // 维护 ai_chat_session 表
+        memoryManagerV2.upsertSession(userId, sessionId, userMessage);
+
         try {
             String result = chatClient.prompt()
                     .advisors(advisorSpec -> advisorSpec.param(
@@ -102,6 +109,9 @@ public class ChatServiceImpl implements ChatService {
         String sessionId = resolveSessionId(request);
         String userMessage = request.getMessage();
         log.info("ChatService.chatStream: userId={}, sessionId={}, message={}", userId, sessionId, userMessage);
+
+        // 维护 ai_chat_session 表
+        memoryManagerV2.upsertSession(userId, sessionId, userMessage);
 
         return Flux.concat(
                 // 1. 先发送 THINK 事件
@@ -149,19 +159,17 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public List<SessionInfo> getSessions(Long userId) {
-        // todo
-        return List.of();
+        return memoryManagerV2.getSessions(userId);
     }
 
     @Override
     public List<ChatMessage> getSessionMessages(Long userId, String sessionId) {
-        // todo
-        return List.of();
+        return memoryManagerV2.getSessionMessages(userId, sessionId);
     }
 
     @Override
     public void clearHistory(Long userId, String sessionId) {
-        // todo
+        memoryManagerV2.clearHistory(userId, sessionId);
     }
 
     private String resolveSessionId(AgentChatRequest request) {
