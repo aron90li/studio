@@ -2,7 +2,7 @@ package com.aron.studio.ai.controller;
 
 import com.aron.studio.ai.dto.*;
 import com.aron.studio.ai.service.AgentService;
-import com.aron.studio.ai.service.ChatServiceV2;
+import com.aron.studio.ai.service.ChatService;
 import com.aron.studio.data.Response;
 import com.aron.studio.util.CurrentUserUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -14,16 +14,16 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/ai/")
+@RequestMapping("")
 public class AiController {
 
     private final AgentService agentService;
-    private final ChatServiceV2 chatServiceV2;
+    private final ChatService chatService;
     private final CurrentUserUtil currentUserUtil;
 
-    public AiController(AgentService agentService, ChatServiceV2 chatServiceV2, CurrentUserUtil currentUserUtil) {
+    public AiController(AgentService agentService, ChatService chatService, CurrentUserUtil currentUserUtil) {
         this.agentService = agentService;
-        this.chatServiceV2 = chatServiceV2;
+        this.chatService = chatService;
         this.currentUserUtil = currentUserUtil;
     }
 
@@ -38,7 +38,7 @@ public class AiController {
      * POST /api/ai/chat
      * 与 AI Agent 对话（阻塞，返回完整结果）
      */
-    @PostMapping("/chat")
+    @PostMapping("/api/ai/chat")
     public Response<AgentChatResponse> chat(@RequestBody AgentChatRequest request) {
         Long userId = getCurrentUserId();
         log.info("收到AI聊天请求(阻塞): userId={}, message={}", userId, request.getMessage());
@@ -60,56 +60,11 @@ public class AiController {
      * - ERROR: 异常
      * - DONE: 完成
      */
-    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PostMapping(value = "/api/ai/chatStream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<AgentChatEvent> chatStream(@RequestBody AgentChatRequest request) {
         Long userId = getCurrentUserId();
         log.info("收到AI聊天请求(流式): userId={}, message={}", userId, request.getMessage());
         return agentService.chatStream(userId, request);
-    }
-
-    // ==================== 阻塞聊天 V2（Spring AI 2.0 原生 Tool Calling） ====================
-
-    /**
-     * POST /api/ai/chat2
-     * 与 AI Agent 对话（V2 阻塞），使用 Spring AI 2.0 原生 Tool Calling 机制
-     * 同步等待完整回答后返回
-     */
-    @PostMapping("/chat2")
-    public Response<AgentChatResponse> chat2(@RequestBody AgentChatRequest request) {
-        Long userId = getCurrentUserId();
-        log.info("收到AI聊天请求(阻塞V2-Spring AI 2.0): userId={}, message={}", userId, request.getMessage());
-        String answer = chatServiceV2.chat(userId, request);
-        AgentChatResponse response = AgentChatResponse.builder()
-                .answer(answer)
-                .sessionId(request.getSessionId())
-                .finished(true)
-                .build();
-        return Response.success(response);
-    }
-
-    // ==================== 流式聊天 V2（Spring AI 2.0 原生 Tool Calling） ====================
-
-    /**
-     * POST /api/ai/chat/stream2
-     * 与 AI Agent 流式对话（V2），使用 Spring AI 2.0 原生 Tool Calling 机制
-     * <p>
-     * 与 /chat/stream (V1) 的关键区别：
-     * <ul>
-     *   <li>V1：手动 Workflow + 正则解析 TOOL_CALL: 文本 → 自己造轮子编排工具调用循环</li>
-     *   <li>V2：@Tool 注解声明工具 + ChatClient.Builder.defaultTools() 注入 → 框架自动处理工具调用循环</li>
-     * </ul>
-     * <p>
-     * 事件类型:
-     * - THINK: Agent 正在思考
-     * - ANSWER: 流式回答 token
-     * - ERROR: 异常
-     * - DONE: 完成
-     */
-    @PostMapping(value = "/chat/stream2", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<AgentChatEvent> chatStream2(@RequestBody AgentChatRequest request) {
-        Long userId = getCurrentUserId();
-        log.info("收到AI聊天请求(流式V2-Spring AI 2.0): userId={}, message={}", userId, request.getMessage());
-        return chatServiceV2.chatStream(userId, request);
     }
 
     // ==================== 会话管理 ====================
@@ -118,7 +73,7 @@ public class AiController {
      * GET /api/ai/sessions
      * 获取当前用户的所有会话列表
      */
-    @GetMapping("/sessions")
+    @GetMapping("/api/ai/sessions")
     public Response<List<SessionInfo>> getSessions() {
         Long userId = getCurrentUserId();
         log.info("查询用户会话列表: userId={}", userId);
@@ -129,7 +84,7 @@ public class AiController {
      * GET /api/ai/sessions/{sessionId}
      * 获取某个会话的完整历史消息
      */
-    @GetMapping("/sessions/{sessionId}")
+    @GetMapping("/api/ai/sessions/{sessionId}")
     public Response<List<ChatMessage>> getSessionMessages(@PathVariable String sessionId) {
         Long userId = getCurrentUserId();
         log.info("查询会话消息: userId={}, sessionId={}", userId, sessionId);
@@ -140,11 +95,57 @@ public class AiController {
      * DELETE /api/ai/sessions/{sessionId}
      * 清空当前用户的某个会话历史
      */
-    @DeleteMapping("/sessions/{sessionId}")
+    @DeleteMapping("/api/ai/sessions/{sessionId}")
     public Response<Void> clearHistory(@PathVariable String sessionId) {
         Long userId = getCurrentUserId();
         log.info("清空会话历史: userId={}, sessionId={}", userId, sessionId);
         agentService.clearHistory(userId, sessionId);
         return Response.success();
     }
+
+    // ==================== 阻塞聊天 V2（Spring AI 2.0 原生 Tool Calling） ====================
+
+    @PostMapping("/api/ai/v2/chat")
+    public Response<AgentChatResponse> chatV2(@RequestBody AgentChatRequest request) {
+        Long userId = getCurrentUserId();
+        log.info("收到AI聊天请求(阻塞V2-Spring AI 2.0): userId={}, message={}", userId, request.getMessage());
+        String answer = chatService.chat(userId, request);
+        AgentChatResponse response = AgentChatResponse.builder()
+                .answer(answer)
+                .sessionId(request.getSessionId())
+                .finished(true)
+                .build();
+        return Response.success(response);
+    }
+
+    // ==================== 流式聊天 V2（Spring AI 2.0 原生 Tool Calling） ====================
+
+    @PostMapping(value = "/api/ai/v2/chatStream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<AgentChatEvent> chatStreamV2(@RequestBody AgentChatRequest request) {
+        Long userId = getCurrentUserId();
+        log.info("收到AI聊天请求(流式V2-Spring AI 2.0): userId={}, message={}", userId, request.getMessage());
+        return chatService.chatStream(userId, request);
+    }
+
+
+    // ==================== 会话管理 V2 ====================
+
+    @GetMapping("/api/ai/v2/sessions")
+    public Response<List<SessionInfo>> getSessionsV2() {
+        // todo
+        return null;
+    }
+
+    @GetMapping("/api/ai/v2/sessions/{sessionId}")
+    public Response<List<ChatMessage>> getSessionMessagesV2(@PathVariable String sessionId) {
+        // todo
+        return null;
+    }
+
+    @DeleteMapping("/api/ai/v2/sessions/{sessionId}")
+    public Response<Void> clearHistoryV2(@PathVariable String sessionId) {
+        // todo
+        return null;
+    }
+
 }

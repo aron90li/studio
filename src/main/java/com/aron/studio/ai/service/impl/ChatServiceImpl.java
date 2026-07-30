@@ -2,7 +2,9 @@ package com.aron.studio.ai.service.impl;
 
 import com.aron.studio.ai.dto.AgentChatEvent;
 import com.aron.studio.ai.dto.AgentChatRequest;
-import com.aron.studio.ai.service.ChatServiceV2;
+import com.aron.studio.ai.dto.ChatMessage;
+import com.aron.studio.ai.dto.SessionInfo;
+import com.aron.studio.ai.service.ChatService;
 import com.aron.studio.ai.tools.impl.MysqlQueryToolV2;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -24,7 +27,7 @@ import java.util.UUID;
  * Controller
  *         │
  *         ▼
- * ChatServiceV2Impl
+ * ChatServiceImpl
  *         │
  *         ▼
  * ChatClient
@@ -41,14 +44,14 @@ import java.util.UUID;
  */
 @Slf4j
 @Service
-public class ChatServiceV2Impl implements ChatServiceV2 {
+public class ChatServiceImpl implements ChatService {
 
     private final ChatClient chatClient;
 
     @Autowired
     private MysqlQueryToolV2 mysqlQueryToolV2;
 
-    public ChatServiceV2Impl(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory) {
+    public ChatServiceImpl(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory) {
 
         this.chatClient = chatClientBuilder
                 .defaultAdvisors(
@@ -76,7 +79,7 @@ public class ChatServiceV2Impl implements ChatServiceV2 {
     public String chat(Long userId, AgentChatRequest request) {
         String sessionId = resolveSessionId(request);
         String userMessage = request.getMessage();
-        log.info("ChatServiceV2.chat: userId={}, sessionId={}, message={}", userId, sessionId, userMessage);
+        log.info("ChatService.chat: userId={}, sessionId={}, message={}", userId, sessionId, userMessage);
 
         try {
             String result = chatClient.prompt()
@@ -86,10 +89,10 @@ public class ChatServiceV2Impl implements ChatServiceV2 {
                     .tools(mysqlQueryToolV2)
                     .call()
                     .content();
-            log.info("ChatServiceV2.chat 完成, sessionId={}", sessionId);
+            log.info("ChatService.chat 完成, sessionId={}", sessionId);
             return result;
         } catch (Exception e) {
-            log.error("ChatServiceV2.chat 异常, sessionId={}", sessionId, e);
+            log.error("ChatService.chat 异常, sessionId={}", sessionId, e);
             return "处理异常: " + e.getMessage();
         }
     }
@@ -98,7 +101,7 @@ public class ChatServiceV2Impl implements ChatServiceV2 {
     public Flux<AgentChatEvent> chatStream(Long userId, AgentChatRequest request) {
         String sessionId = resolveSessionId(request);
         String userMessage = request.getMessage();
-        log.info("ChatServiceV2.chatStream: userId={}, sessionId={}, message={}", userId, sessionId, userMessage);
+        log.info("ChatService.chatStream: userId={}, sessionId={}, message={}", userId, sessionId, userMessage);
 
         return Flux.concat(
                 // 1. 先发送 THINK 事件
@@ -127,7 +130,7 @@ public class ChatServiceV2Impl implements ChatServiceV2 {
                                 .sessionId(sessionId)
                                 .build())
                         .onErrorResume(e -> {
-                            log.error("ChatServiceV2 流式输出异常, sessionId={}", sessionId, e);
+                            log.error("ChatService 流式输出异常, sessionId={}", sessionId, e);
                             return Mono.just(AgentChatEvent.builder()
                                     .type("ERROR")
                                     .data("处理异常: " + e.getMessage())
@@ -142,6 +145,23 @@ public class ChatServiceV2Impl implements ChatServiceV2 {
                         .sessionId(sessionId)
                         .build())
         );
+    }
+
+    @Override
+    public List<SessionInfo> getSessions(Long userId) {
+        // todo
+        return List.of();
+    }
+
+    @Override
+    public List<ChatMessage> getSessionMessages(Long userId, String sessionId) {
+        // todo
+        return List.of();
+    }
+
+    @Override
+    public void clearHistory(Long userId, String sessionId) {
+        // todo
     }
 
     private String resolveSessionId(AgentChatRequest request) {
