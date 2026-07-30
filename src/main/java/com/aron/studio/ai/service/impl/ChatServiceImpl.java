@@ -6,7 +6,8 @@ import com.aron.studio.ai.dto.ChatMessage;
 import com.aron.studio.ai.dto.SessionInfo;
 import com.aron.studio.ai.memory.MemoryManagerV2;
 import com.aron.studio.ai.service.ChatService;
-import com.aron.studio.ai.tools.impl.MysqlQueryToolV2;
+import com.aron.studio.ai.tools.mysql.MysqlTool;
+import com.aron.studio.ai.tools.kafka.KafkaTool;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -50,18 +51,17 @@ public class ChatServiceImpl implements ChatService {
     private final ChatClient chatClient;
 
     @Autowired
-    private MysqlQueryToolV2 mysqlQueryToolV2;
+    private MemoryManagerV2 memoryManagerV2;
 
-    private final MemoryManagerV2 memoryManagerV2;
-
-    public ChatServiceImpl(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory, MemoryManagerV2 memoryManagerV2) {
-        this.memoryManagerV2 = memoryManagerV2;
+    public ChatServiceImpl(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory,
+                           MysqlTool mysqlTool, KafkaTool kafkaTool) {
 
         this.chatClient = chatClientBuilder
                 .defaultAdvisors(
                         new SimpleLoggerAdvisor(),
                         MessageChatMemoryAdvisor.builder(chatMemory).build()
                 )
+                .defaultTools(mysqlTool, kafkaTool)
                 .defaultSystem("""
                         你是FlinkStudio智能助手。
                         
@@ -93,7 +93,6 @@ public class ChatServiceImpl implements ChatService {
                     .advisors(advisorSpec -> advisorSpec.param(
                             ChatMemory.CONVERSATION_ID, sessionId))
                     .user(userMessage)
-                    .tools(mysqlQueryToolV2)
                     .call()
                     .content();
             log.info("ChatService.chat 完成, sessionId={}", sessionId);
@@ -124,7 +123,6 @@ public class ChatServiceImpl implements ChatService {
                         .advisors(advisorSpec -> advisorSpec.param(
                                 ChatMemory.CONVERSATION_ID, sessionId))
                         .user(userMessage)
-                        .tools(mysqlQueryToolV2)
                         .stream()
                         .chatResponse()
                         .flatMap(response -> {

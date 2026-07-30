@@ -1,4 +1,4 @@
-package com.aron.studio.ai.tools.impl;
+package com.aron.studio.ai.tools.mysql;
 
 import com.aron.studio.ai.dto.MysqlQueryResult;
 import lombok.extern.slf4j.Slf4j;
@@ -22,11 +22,11 @@ import java.util.Map;
  */
 @Slf4j
 @Component
-public class MysqlQueryToolV2 {
+public class MysqlTool {
 
     private final JdbcTemplate jdbcTemplate;
 
-    public MysqlQueryToolV2(JdbcTemplate jdbcTemplate) {
+    public MysqlTool(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
