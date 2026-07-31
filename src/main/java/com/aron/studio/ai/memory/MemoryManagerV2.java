@@ -124,8 +124,8 @@ public class MemoryManagerV2 {
             log.warn("会话不存在或不属于该用户: userId={}, sessionId={}", userId, sessionId);
             return;
         }
-        // 逻辑删除 ai_chat_session
-        jdbcTemplate.update("UPDATE ai_chat_session SET deleted = 1 WHERE session_id = ?", sessionId);
+        // 物理删除 ai_chat_session, 可以逻辑删除
+        jdbcTemplate.update("DELETE FROM ai_chat_session WHERE session_id = ?", sessionId);
         // 物理删除 SPRING_AI_CHAT_MEMORY 中的消息
         jdbcTemplate.update("DELETE FROM SPRING_AI_CHAT_MEMORY WHERE conversation_id = ?", sessionId);
         log.info("已清空会话: userId={}, sessionId={}", userId, sessionId);

@@ -13,6 +13,8 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -112,6 +114,7 @@ public class ChatServiceImpl implements ChatService {
         // 维护 ai_chat_session 表
         memoryManagerV2.upsertSession(userId, sessionId, userMessage);
 
+        // 建议使用 stream().content() 返回 Flux<String>，Spring AI 已屏蔽了各 Provider（DeepSeek、OpenAI、Qwen、Claude 等）的 ChatResponse 差异。
         return Flux.concat(
                 // 1. 先发送 THINK 事件
                 Flux.just(AgentChatEvent.builder()
@@ -126,11 +129,26 @@ public class ChatServiceImpl implements ChatService {
                         .stream()
                         .chatResponse()
                         .flatMap(response -> {
-                            String token = response.getResult().getOutput().getText();
-                            if (token == null || token.isEmpty()) {
+                            if (response == null) {
                                 return Mono.empty();
                             }
-                            return Mono.just(token);
+
+                            Generation generation = response.getResult();
+                            if (generation == null) {
+                                return Mono.empty();
+                            }
+
+                            AssistantMessage assistant = generation.getOutput();
+                            if (assistant == null) {
+                                return Mono.empty();
+                            }
+
+                            String text = assistant.getText();
+                            if (text == null || text.isBlank()) {
+                                return Mono.empty();
+                            }
+
+                            return Mono.just(text);
                         })
                         .map(token -> AgentChatEvent.builder()
                                 .type("ANSWER")

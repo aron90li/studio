@@ -124,7 +124,7 @@ public class KafkaTool {
             + "需要先通过 listCluster 获取可用的 brokers 地址。")
     public List<KafkaTopicInfo> listTopic(
             @ToolParam(description = "Kafka 集群的 brokers 地址，格式如 \"localhost:9092\" 或 \"kafka1:9092,kafka2:9092\"", required = true) String brokers) {
-
+        log.info("call listTopic begin, brokers: {}", brokers);
         Properties props = new Properties();
         props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, brokers);
         props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, 10000);
@@ -170,6 +170,7 @@ public class KafkaTool {
             Thread.currentThread().interrupt();
             throw new RuntimeException("获取 Kafka Topic 列表被中断");
         }
+        log.info("call listTopic end, brokers: {}", brokers);
 
         return topicInfoList;
     }
@@ -180,28 +181,28 @@ public class KafkaTool {
      * 遍历指定 topic 的所有分区，按条件过滤消息：
      * <ul>
      *   <li>topic：必须指定要搜索的 Topic 名称</li>
-     *   <li>searchKey：可指定多个 key（逗号分隔），消息 key 需包含全部关键词（AND 逻辑），为空则匹配所有</li>
+     *   <li>searchValue：可指定多个关键词（逗号分隔），消息 value 需包含全部关键词（AND 逻辑），为空则匹配所有</li>
      *   <li>beginTime：起始时间（含），格式 yyyy-MM-dd HH:mm:ss，为空则不限制起始时间</li>
      *   <li>endTime：结束时间（含），格式 yyyy-MM-dd HH:mm:ss，为空则不限制结束时间</li>
      *   <li>limitCount：最多返回条数，默认 1000</li>
      *   <li>timeout：最长搜索时间（分钟），默认 10 分钟</li>
      * </ul>
      *
-     * @param brokers    Kafka 集群地址
-     * @param topic      要搜索的 Topic 名称（必填）
-     * @param searchKey  搜索关键词，多个 key 用逗号分隔（AND 逻辑），可选
-     * @param beginTime  起始时间（格式 yyyy-MM-dd HH:mm:ss），可选
-     * @param endTime    结束时间（格式 yyyy-MM-dd HH:mm:ss），可选
-     * @param limitCount 最多返回条数，默认 1000
-     * @param timeout    最长搜索超时时间（分钟），默认 10
+     * @param brokers     Kafka 集群地址
+     * @param topic       要搜索的 Topic 名称（必填）
+     * @param searchValue 搜索关键词，多个关键词用逗号分隔（AND 逻辑），按消息 value 匹配，可选
+     * @param beginTime   起始时间（格式 yyyy-MM-dd HH:mm:ss），可选
+     * @param endTime     结束时间（格式 yyyy-MM-dd HH:mm:ss），可选
+     * @param limitCount  最多返回条数，默认 1000
+     * @param timeout     最长搜索超时时间（分钟），默认 10
      * @return 匹配的消息列表，每条包含 key、value、partition、offset、timestamp
      */
     @Tool(description = "在指定 Kafka Topic 中搜索消息。调用此方法前必须先调用 testConnection 验证 brokers 连接可用。"
-            + "根据 searchKey（多个关键词逗号分隔，AND 匹配）、时间范围（beginTime/endTime，格式 yyyy-MM-dd HH:mm:ss）搜索消息。"
+            + "根据 searchValue（多个关键词逗号分隔，AND 匹配）、时间范围（beginTime/endTime，格式 yyyy-MM-dd HH:mm:ss）搜索消息。"
             + "参数说明："
             + "brokers（必填）: Kafka 集群地址；"
             + "topic（必填）: 要搜索的 Topic 名称，需先通过 listTopic 获取可用的 Topic 列表；"
-            + "searchKey（可选）: 搜索的消息 key 关键词，多个用逗号分隔（AND 逻辑：消息 key 需同时包含所有关键词），不传则返回该 Topic 所有 key 的消息；"
+            + "searchValue（可选）: 搜索的消息 value 关键词，多个用逗号分隔（AND 逻辑：消息 value 需同时包含所有关键词），不传则返回该 Topic 所有 value 的消息；"
             + "beginTime（可选）: 起始时间，格式 yyyy-MM-dd HH:mm:ss，例如 2025-01-01 00:00:00，不传则不限制起始时间；"
             + "endTime（可选）: 结束时间，格式同上，不传则不限制结束时间；"
             + "limitCount（可选）: 最多返回的消息条数，默认 1000；"
@@ -211,8 +212,8 @@ public class KafkaTool {
             @ToolParam(description = "Kafka 集群的 brokers 地址，格式如 \"localhost:9092\" 或多个用逗号分隔", required = true) String brokers,
             @ToolParam(description = "要搜索的 Topic 名称，例如 \"order-topic\"。需先通过 listTopic 获取可用的 Topic 列表",
                     required = true) String topic,
-            @ToolParam(description = "搜索的消息 key 关键词，多个关键词用逗号分隔（AND 逻辑：消息 key 需同时包含所有关键词）。"
-                    + "例如 \"order,pay\" 表示搜索 key 中同时包含 order 和 pay 的消息。不传则匹配所有 key。", required = false) String searchKey,
+            @ToolParam(description = "搜索的消息 value 关键词，多个关键词用逗号分隔（AND 逻辑：消息 value 需同时包含所有关键词）。"
+                    + "例如 \"success,paid\" 表示搜索 value 中同时包含 success 和 paid 的消息。不传则匹配所有 value。", required = false) String searchValue,
             @ToolParam(description = "起始时间，格式 yyyy-MM-dd HH:mm:ss，例如 \"2025-01-01 00:00:00\"。"
                     + "只返回时间戳 >= beginTime 的消息。不传则不限制起始时间。", required = false) String beginTime,
             @ToolParam(description = "结束时间，格式 yyyy-MM-dd HH:mm:ss，例如 \"2025-12-31 23:59:59\"。"
@@ -233,8 +234,8 @@ public class KafkaTool {
             throw new IllegalArgumentException("beginTime 不能晚于 endTime: beginTime=" + beginTime + ", endTime=" + endTime);
         }
 
-        // 解析搜索关键词（AND 逻辑，逗号分隔多个 key）
-        List<String> searchKeys = parseSearchKeys(searchKey);
+        // 解析搜索关键词（AND 逻辑，逗号分隔多个 value 关键词）
+        List<String> searchValues = parseSearchValues(searchValue);
 
         // 构建 Consumer 配置
         Properties props = new Properties();
@@ -253,8 +254,8 @@ public class KafkaTool {
 
         List<KafkaMessage> results = new ArrayList<>();
 
-        log.info("开始搜索 Kafka 消息: brokers={}, topic={}, searchKey={}, beginTime={}, endTime={}, limitCount={}, timeout={}min",
-                brokers, topic, searchKey, beginTime, endTime, maxResults, timeoutMinutes);
+        log.info("开始搜索 Kafka 消息: brokers={}, topic={}, searchValue={}, beginTime={}, endTime={}, limitCount={}, timeout={}min",
+                brokers, topic, searchValue, beginTime, endTime, maxResults, timeoutMinutes);
 
         try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props)) {
             List<TopicPartition> allPartitions = new ArrayList<>();
@@ -359,10 +360,10 @@ public class KafkaTool {
                         continue;
                     }
 
-                    // key 关键词过滤（AND 逻辑）
-                    if (!searchKeys.isEmpty()) {
-                        String msgKey = record.key();
-                        if (msgKey == null || !matchesAllKeywords(msgKey, searchKeys)) {
+                    // value 关键词过滤（AND 逻辑）
+                    if (!searchValues.isEmpty()) {
+                        String msgValue = record.value();
+                        if (msgValue == null || !matchesAllKeywords(msgValue, searchValues)) {
                             continue;
                         }
                     }
@@ -406,26 +407,26 @@ public class KafkaTool {
     /**
      * 解析搜索关键词列表（逗号分隔，AND 逻辑）
      */
-    private List<String> parseSearchKeys(String searchKey) {
-        if (searchKey == null || searchKey.trim().isEmpty()) {
+    private List<String> parseSearchValues(String searchValue) {
+        if (searchValue == null || searchValue.trim().isEmpty()) {
             return Collections.emptyList();
         }
-        List<String> keys = new ArrayList<>();
-        for (String part : searchKey.split(",")) {
+        List<String> values = new ArrayList<>();
+        for (String part : searchValue.split(",")) {
             String trimmed = part.trim();
             if (!trimmed.isEmpty()) {
-                keys.add(trimmed);
+                values.add(trimmed);
             }
         }
-        return keys;
+        return values;
     }
 
     /**
-     * 检查消息 key 是否包含所有关键词（AND 逻辑）
+     * 检查消息内容是否包含所有关键词（AND 逻辑）
      */
-    private boolean matchesAllKeywords(String msgKey, List<String> keywords) {
+    private boolean matchesAllKeywords(String msgContent, List<String> keywords) {
         for (String keyword : keywords) {
-            if (!msgKey.contains(keyword)) {
+            if (!msgContent.contains(keyword)) {
                 return false;
             }
         }
