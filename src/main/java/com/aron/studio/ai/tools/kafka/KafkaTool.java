@@ -23,6 +23,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -53,6 +54,65 @@ public class KafkaTool {
     }
 
     /**
+     * 测试 Kafka 集群连接
+     * <p>
+     * 通过 AdminClient 连接指定 brokers，验证网络可达性和 Kafka 服务可用性。10 秒内必须返回结果。
+     *
+     * @param brokers Kafka 集群地址，例如 "localhost:9092" 或 "kafka1:9092,kafka2:9092"
+     * @return KafkaConnectionResult 结构化连接测试结果
+     */
+    @Tool(description = "测试 Kafka 集群连接是否可用。"
+            + "在调用 listTopic、searchMessage 等任何需要 brokers 参数的 Kafka 操作之前，必须先调用此工具验证连接。"
+            + "返回 KafkaConnectionResult，包含 connected（是否连接成功）、nodeCount（节点数）、topicCount（topic数量）、"
+            + "elapsedMs（耗时毫秒）、brokers（地址）、message（详细信息）。"
+            + "如果 connected=false，则不应继续调用其他 Kafka 工具。"
+            + "连接超时时间为 10 秒。")
+    public KafkaConnectionResult testConnection(
+            @ToolParam(description = "Kafka 集群的 brokers 地址，格式如 \"localhost:9092\" 或 \"kafka1:9092,kafka2:9092\"", required = true) String brokers) {
+
+        Properties props = new Properties();
+        props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, brokers);
+        // 关键：default.api.timeout.ms 是 AdminClient 所有内部操作的硬上限，默认 60000ms
+        props.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, 8000);
+        props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, 5000);
+        // 最大重试次数设为 0，连接错误立即失败不重试
+        props.put(AdminClientConfig.RETRIES_CONFIG, 0);
+
+        long startTime = System.currentTimeMillis();
+        log.info("testConnection 开始：{}", brokers);
+        try (AdminClient adminClient = AdminClient.create(props)) {
+            ListTopicsResult topicsResult = adminClient.listTopics();
+            Set<String> topics = topicsResult.names().get(8, TimeUnit.SECONDS);
+            int brokerCount = adminClient.describeCluster().nodes().get(8, TimeUnit.SECONDS).size();
+
+            long elapsed = System.currentTimeMillis() - startTime;
+            String message = String.format("集群连接正常，broker节点数=%d，topic数量=%d", brokerCount, topics.size());
+            log.info("testConnection 成功: brokers={}, nodeCount={}, topicCount={}, elapsed={}ms",
+                    brokers, brokerCount, topics.size(), elapsed);
+            return KafkaConnectionResult.builder()
+                    .connected(true)
+                    .nodeCount(brokerCount)
+                    .topicCount(topics.size())
+                    .elapsedMs(elapsed)
+                    .brokers(brokers)
+                    .message(message)
+                    .build();
+        } catch (Exception e) {
+            long elapsed = System.currentTimeMillis() - startTime;
+            String message = "连接失败: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+            log.warn("testConnection 失败: brokers={}, elapsed={}ms, error={}", brokers, elapsed, e.getMessage());
+            return KafkaConnectionResult.builder()
+                    .connected(false)
+                    .nodeCount(0)
+                    .topicCount(0)
+                    .elapsedMs(elapsed)
+                    .brokers(brokers)
+                    .message(message)
+                    .build();
+        }
+    }
+
+    /**
      * 列出指定 Kafka 集群的所有 Topic
      *
      * @param brokers Kafka 集群地址，例如 "localhost:9092" 或 "kafka1:9092,kafka2:9092"
@@ -60,6 +120,7 @@ public class KafkaTool {
      */
     @Tool(description = "列出指定 Kafka 集群的所有 Topic 及其分区信息。"
             + "返回结果包含每个 Topic 的 name（Topic名称）、partitions（分区数）、replicationInfo（副本信息简要描述）。"
+            + "调用此方法前必须先调用 testConnection 验证 brokers 连接可用。"
             + "需要先通过 listCluster 获取可用的 brokers 地址。")
     public List<KafkaTopicInfo> listTopic(
             @ToolParam(description = "Kafka 集群的 brokers 地址，格式如 \"localhost:9092\" 或 \"kafka1:9092,kafka2:9092\"", required = true) String brokers) {
@@ -135,7 +196,8 @@ public class KafkaTool {
      * @param timeout    最长搜索超时时间（分钟），默认 10
      * @return 匹配的消息列表，每条包含 key、value、partition、offset、timestamp
      */
-    @Tool(description = "在指定 Kafka Topic 中搜索消息。根据 searchKey（多个关键词逗号分隔，AND 匹配）、时间范围（beginTime/endTime，格式 yyyy-MM-dd HH:mm:ss）搜索消息。"
+    @Tool(description = "在指定 Kafka Topic 中搜索消息。调用此方法前必须先调用 testConnection 验证 brokers 连接可用。"
+            + "根据 searchKey（多个关键词逗号分隔，AND 匹配）、时间范围（beginTime/endTime，格式 yyyy-MM-dd HH:mm:ss）搜索消息。"
             + "参数说明："
             + "brokers（必填）: Kafka 集群地址；"
             + "topic（必填）: 要搜索的 Topic 名称，需先通过 listTopic 获取可用的 Topic 列表；"
@@ -183,14 +245,10 @@ public class KafkaTool {
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
         props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1000);
-        // 每个 Partition 最大拉取 20MB
         props.put(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG, 50 * 1024 * 1024);
-        // 一次 Fetch 最大 100MB
         props.put(ConsumerConfig.FETCH_MAX_BYTES_CONFIG, 100 * 1024 * 1024);
 
-        // 设置每次 poll 超时为 1 秒，便于及时退出
         Duration pollTimeout = Duration.ofSeconds(1);
-        // 全局超时
         long deadline = System.currentTimeMillis() + timeoutMinutes * 60 * 1000L;
 
         List<KafkaMessage> results = new ArrayList<>();
@@ -199,7 +257,6 @@ public class KafkaTool {
                 brokers, topic, searchKey, beginTime, endTime, maxResults, timeoutMinutes);
 
         try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props)) {
-            // 获取指定 topic 的所有分区
             List<TopicPartition> allPartitions = new ArrayList<>();
             try {
                 List<org.apache.kafka.common.PartitionInfo> partitionInfos = consumer.partitionsFor(topic);
@@ -223,11 +280,10 @@ public class KafkaTool {
 
             consumer.assign(allPartitions);
 
-            // === 根据 beginTime 通过时间戳定位起始 offset，跳过更早的消息 ===
+            // === 根据 beginTime 通过时间戳定位起始 offset ===
             Map<TopicPartition, Long> partitionEndOffsets;
             if (beginTimestamp != null) {
-                // 构建时间戳查询 Map
-                Map<TopicPartition, Long> timestampsToSearch = new java.util.HashMap<>();
+                Map<TopicPartition, Long> timestampsToSearch = new HashMap<>();
                 for (TopicPartition tp : allPartitions) {
                     timestampsToSearch.put(tp, beginTimestamp);
                 }
@@ -241,40 +297,36 @@ public class KafkaTool {
                         consumer.seek(entry.getKey(), entry.getValue().offset());
                         seekedCount++;
                     } else {
-                        // 该分区没有 >= beginTime 的消息，seek 到末尾，跳过整个分区
                         consumer.seekToEnd(Collections.singletonList(entry.getKey()));
                         noOffsetCount++;
                     }
                 }
                 log.info("根据 beginTime 定位 offset: {} 个分区已 seek，{} 个分区无匹配数据已跳过", seekedCount, noOffsetCount);
             } else {
-                // 无 beginTime，从 earliest 开始
                 consumer.seekToBeginning(allPartitions);
                 log.info("无 beginTime，共分配 {} 个分区，从 earliest offset 开始消费", allPartitions.size());
             }
 
-            // === 根据 endTime 确定每个分区消费的截止 offset ===
+            // === 根据 endTime 确定截止 offset ===
             if (endTimestamp != null) {
-                Map<TopicPartition, Long> endTimestamps = new java.util.HashMap<>();
+                Map<TopicPartition, Long> endTimestamps = new HashMap<>();
                 for (TopicPartition tp : allPartitions) {
                     endTimestamps.put(tp, endTimestamp);
                 }
                 Map<TopicPartition, org.apache.kafka.clients.consumer.OffsetAndTimestamp> endOffsetTimestamps =
                         consumer.offsetsForTimes(endTimestamps);
 
-                partitionEndOffsets = new java.util.HashMap<>();
+                partitionEndOffsets = new HashMap<>();
                 for (Map.Entry<TopicPartition, org.apache.kafka.clients.consumer.OffsetAndTimestamp> entry : endOffsetTimestamps.entrySet()) {
                     if (entry.getValue() != null) {
-                        // offset 对应的是 >= endTimestamp 的第一条，取前一条（即 offset-1）作为截止
                         partitionEndOffsets.put(entry.getKey(), entry.getValue().offset());
                     } else {
-                        // 整个分区的消息都在 endTime 之前，消费到末尾即可
-                        partitionEndOffsets.put(entry.getKey(), consumer.endOffsets(Collections.singletonList(entry.getKey())).get(entry.getKey()));
+                        partitionEndOffsets.put(entry.getKey(),
+                                consumer.endOffsets(Collections.singletonList(entry.getKey())).get(entry.getKey()));
                     }
                 }
                 log.info("根据 endTime 确定各分区截止 offset");
             } else {
-                // 无 endTime，直接取各分区末尾 offset
                 partitionEndOffsets = consumer.endOffsets(allPartitions);
             }
 
@@ -287,7 +339,6 @@ public class KafkaTool {
                     continue;
                 }
 
-                // 处理本批次消息时，如果发现某分区已越过截止 offset，则直接跳过该记录
                 for (var record : records) {
                     if (results.size() >= maxResults || System.currentTimeMillis() >= deadline) {
                         break;
@@ -296,12 +347,11 @@ public class KafkaTool {
                     TopicPartition tp = new TopicPartition(record.topic(), record.partition());
                     Long endOffset = partitionEndOffsets.get(tp);
 
-                    // 该分区的当前记录 offset 已达到或超过截止 offset，跳过该记录
                     if (endOffset != null && record.offset() >= endOffset) {
                         continue;
                     }
 
-                    // 时间过滤（兜底：offsetsForTimes 是二分近似，需精确校验）
+                    // 时间过滤（兜底）
                     if (beginTimestamp != null && record.timestamp() < beginTimestamp) {
                         continue;
                     }
@@ -327,7 +377,6 @@ public class KafkaTool {
                 }
             }
 
-            // 检查是否因超时而提前退出
             if (System.currentTimeMillis() >= deadline) {
                 log.warn("搜索超时（{}分钟），已返回 {} 条结果，可能不完整", timeoutMinutes, results.size());
             }
@@ -339,9 +388,6 @@ public class KafkaTool {
 
     /**
      * 解析时间字符串为毫秒时间戳
-     *
-     * @param timeStr 时间字符串，格式 yyyy-MM-dd HH:mm:ss
-     * @return 毫秒时间戳，如果输入为空则返回 null
      */
     private Long parseTime(String timeStr) {
         if (timeStr == null || timeStr.trim().isEmpty()) {
@@ -359,9 +405,6 @@ public class KafkaTool {
 
     /**
      * 解析搜索关键词列表（逗号分隔，AND 逻辑）
-     *
-     * @param searchKey 逗号分隔的关键词字符串
-     * @return 非空关键词列表，去除空白和空字符串
      */
     private List<String> parseSearchKeys(String searchKey) {
         if (searchKey == null || searchKey.trim().isEmpty()) {
@@ -379,10 +422,6 @@ public class KafkaTool {
 
     /**
      * 检查消息 key 是否包含所有关键词（AND 逻辑）
-     *
-     * @param msgKey   消息 key
-     * @param keywords 关键词列表
-     * @return 如果 key 包含所有关键词则返回 true
      */
     private boolean matchesAllKeywords(String msgKey, List<String> keywords) {
         for (String keyword : keywords) {
@@ -395,11 +434,6 @@ public class KafkaTool {
 
     /**
      * 检查所有分区是否都已消费到指定的截止 offset
-     *
-     * @param consumer            Kafka Consumer
-     * @param allPartitions       所有分配的分区
-     * @param partitionEndOffsets 每个分区的截止 offset
-     * @return 所有分区都到达截止 offset 则返回 true
      */
     private boolean checkAllPartitionsEnd(KafkaConsumer<String, String> consumer,
                                           List<TopicPartition> allPartitions,
