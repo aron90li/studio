@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
  * 演示数据初始化器 - 启动时自动创建演示表并插入示例数据
  */
 @Slf4j
-@Component
+// @Component
 public class DemoDataInitializer implements CommandLineRunner {
 
     private final JdbcTemplate jdbcTemplate;

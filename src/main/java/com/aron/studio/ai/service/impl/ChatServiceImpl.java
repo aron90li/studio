@@ -65,9 +65,8 @@ public class ChatServiceImpl implements ChatService {
                 )
                 .defaultTools(mysqlTool, kafkaTool)
                 .defaultSystem("""
-                        你是FlinkStudio智能助手。
+                        你是FlinkStudio智能助手，你擅长:
                         
-                        你擅长:
                         - Flink SQL
                         - Kafka
                         - Paimon
@@ -119,7 +118,7 @@ public class ChatServiceImpl implements ChatService {
                 // 1. 先发送 THINK 事件
                 Flux.just(AgentChatEvent.builder()
                         .type("THINK")
-                        .data("正在使用 Spring AI 2.0 原生 Tool Calling 处理请求...")
+                        .data("正在使用 Spring AI 2.0 处理请求...")
                         .sessionId(sessionId)
                         .build()),
                 chatClient.prompt()
@@ -127,29 +126,31 @@ public class ChatServiceImpl implements ChatService {
                                 ChatMemory.CONVERSATION_ID, sessionId))
                         .user(userMessage)
                         .stream()
-                        .chatResponse()
-                        .flatMap(response -> {
-                            if (response == null) {
-                                return Mono.empty();
-                            }
-
-                            Generation generation = response.getResult();
-                            if (generation == null) {
-                                return Mono.empty();
-                            }
-
-                            AssistantMessage assistant = generation.getOutput();
-                            if (assistant == null) {
-                                return Mono.empty();
-                            }
-
-                            String text = assistant.getText();
-                            if (text == null || text.isBlank()) {
-                                return Mono.empty();
-                            }
-
-                            return Mono.just(text);
-                        })
+                        // 以下这种处理方式前端渲染markdown会有问题，改成content直接获取
+//                        .chatResponse()
+//                        .flatMap(response -> {
+//                            if (response == null) {
+//                                return Mono.empty();
+//                            }
+//
+//                            Generation generation = response.getResult();
+//                            if (generation == null) {
+//                                return Mono.empty();
+//                            }
+//
+//                            AssistantMessage assistant = generation.getOutput();
+//                            if (assistant == null) {
+//                                return Mono.empty();
+//                            }
+//
+//                            String text = assistant.getText();
+//                            if (text == null || text.isBlank()) {
+//                                return Mono.empty();
+//                            }
+//
+//                            return Mono.just(text);
+//                        })
+                        .content()
                         .map(token -> AgentChatEvent.builder()
                                 .type("ANSWER")
                                 .data(token)
