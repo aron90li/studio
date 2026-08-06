@@ -172,6 +172,8 @@
         </dependencies>
     </dependencyManagement>
     <build>
+        <!--影响所有产物，包括 thin jar 和 fat jar -->
+        <!-- <finalName>${artifactId}</finalName> -->
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -206,7 +208,7 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- 将 thin jar 和 lib 打包成 tar.gz -->
+            <!-- 将 thin jar 和 lib 打包成 tar.gz 默认名字是 ${finalName}-${id}.${format} -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
@@ -214,8 +216,10 @@
                     <descriptors>
                         <descriptor>src/main/assembly/assembly.xml</descriptor>
                     </descriptors>
-                    <!-- tar.gz 不随 install/deploy 附带 -->
+                    <!-- tar.gz 不随 install/deploy 附带 不安装（install）到本地仓库，不部署（deploy）到远程仓库-->
                     <attach>false</attach>
+                    <finalName>${artifactId}</finalName>
+                    <appendAssemblyId>false</appendAssemblyId>
                 </configuration>
                 <executions>
                     <execution>
