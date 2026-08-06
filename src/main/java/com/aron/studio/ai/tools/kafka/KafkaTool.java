@@ -63,8 +63,10 @@ public class KafkaTool {
      */
     @Tool(description = "测试 Kafka 集群连接是否可用。"
             + "在调用 listTopic、searchMessage 等任何需要 brokers 参数的 Kafka 操作之前，必须先调用此工具验证连接。"
-            + "返回 KafkaConnectionResult，包含 connected（是否连接成功）、nodeCount（节点数）、topicCount（topic数量）、"
+            + "返回 KafkaConnectionResult，包含 connected（是否连接成功）、nodeCount（节点数）、"
             + "elapsedMs（耗时毫秒）、brokers（地址）、message（详细信息）。"
+            + "注意：该方法仅验证连接可用性，不获取 topic 列表以节省 token，topic 数量固定返回 0，"
+            + "需要 topic 列表时请调用 listTopic 工具。"
             + "如果 connected=false，则不应继续调用其他 Kafka 工具。"
             + "连接超时时间为 10 秒。")
     public KafkaConnectionResult testConnection(
@@ -81,18 +83,16 @@ public class KafkaTool {
         long startTime = System.currentTimeMillis();
         log.info("testConnection 开始：{}", brokers);
         try (AdminClient adminClient = AdminClient.create(props)) {
-            ListTopicsResult topicsResult = adminClient.listTopics();
-            Set<String> topics = topicsResult.names().get(8, TimeUnit.SECONDS);
             int brokerCount = adminClient.describeCluster().nodes().get(8, TimeUnit.SECONDS).size();
 
             long elapsed = System.currentTimeMillis() - startTime;
-            String message = String.format("集群连接正常，broker节点数=%d，topic数量=%d", brokerCount, topics.size());
-            log.info("testConnection 成功: brokers={}, nodeCount={}, topicCount={}, elapsed={}ms",
-                    brokers, brokerCount, topics.size(), elapsed);
+            String message = String.format("集群连接正常，broker节点数=%d", brokerCount);
+            log.info("testConnection 成功: brokers={}, nodeCount={}, elapsed={}ms",
+                    brokers, brokerCount, elapsed);
             return KafkaConnectionResult.builder()
                     .connected(true)
                     .nodeCount(brokerCount)
-                    .topicCount(topics.size())
+                    .topicCount(0)
                     .elapsedMs(elapsed)
                     .brokers(brokers)
                     .message(message)
