@@ -5,6 +5,7 @@ import com.aron.studio.ai.dto.SessionInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -116,16 +117,18 @@ public class MemoryManagerV2 {
     /**
      * 清空某个会话历史（删除 SPRING_AI_CHAT_MEMORY 和 ai_chat_session 中的数据）
      */
+    @Transactional(rollbackFor = Exception.class)
     public void clearHistory(Long userId, String sessionId) {
         // 先校验该会话是否属于该用户
-        String checkSql = "SELECT id FROM ai_chat_session WHERE user_id = ? AND session_id = ? AND deleted = 0";
+        String checkSql = "SELECT id FROM ai_chat_session "
+                + "WHERE user_id = ? AND session_id = ? AND deleted = 0 FOR UPDATE";
         List<Long> ids = jdbcTemplate.queryForList(checkSql, Long.class, userId, sessionId);
         if (ids.isEmpty()) {
             log.warn("会话不存在或不属于该用户: userId={}, sessionId={}", userId, sessionId);
             return;
         }
         // 物理删除 ai_chat_session, 可以逻辑删除
-        jdbcTemplate.update("DELETE FROM ai_chat_session WHERE session_id = ?", sessionId);
+        jdbcTemplate.update("DELETE FROM ai_chat_session WHERE user_id = ? AND session_id = ?", userId, sessionId);
         // 物理删除 SPRING_AI_CHAT_MEMORY 中的消息
         jdbcTemplate.update("DELETE FROM SPRING_AI_CHAT_MEMORY WHERE conversation_id = ?", sessionId);
         log.info("已清空会话: userId={}, sessionId={}", userId, sessionId);
