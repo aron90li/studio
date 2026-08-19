@@ -36,14 +36,12 @@ public class SecurityConfig {
                     // 允许所有源（不能和 allowCredentials=true 一起用）
                     config.setAllowedOriginPatterns(List.of("*"));
                     config.setAllowedMethods(List.of("*"));
-                    config.setAllowedHeaders(List.of("*"));
-                    // 如果是 true，允许浏览器发送 Cookie / Authorization header
-                    // 也就允许浏览器添加请求头 Cookie: SESSIONID=abc123; otherCookie=xyz
-                    // Authorization: Basic dXNlcjpwYXNz 等
-                    config.setAllowCredentials(false); // // 不信任浏览器自动凭证 设置响应头 Access-Control-Allow-Credentials: false，默认就是 false，
+                    config.setAllowedHeaders(List.of("*")); // 允许 Authorization
+                    // 如果是 true，允许浏览器发送 Cookie: SESSIONID=abc123; otherCookie=xyz
+                    config.setAllowCredentials(false); // // 禁止浏览器在跨域请求中携带 credentials（例如 Cookie），默认就是 false，
                     return config;
                 }))
-                // 关闭 CSRF（前后端分离必须）
+                // 关闭 CSRF 防护
                 .csrf(csrf -> csrf.disable())
 
                 // 不使用 Session
