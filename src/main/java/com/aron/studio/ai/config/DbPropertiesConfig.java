@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * 独立数据库工具连接配置，不复用 spring.datasource。
  */
-@ConfigurationProperties(prefix = "db")
+@ConfigurationProperties(prefix = "tools.db")
 public class DbPropertiesConfig {
 
     private List<MysqlConnection> connections = new ArrayList<>();
