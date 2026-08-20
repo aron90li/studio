@@ -14,6 +14,9 @@ public class MysqlQueryResult {
     /** 查询结果记录数 */
     private int count;
 
+    /** UPDATE/DELETE 影响的行数 */
+    private int affectedRows;
+
     /** 查询数据 */
     private List<Map<String, Object>> data;
 
@@ -27,6 +30,16 @@ public class MysqlQueryResult {
         MysqlQueryResult result = new MysqlQueryResult();
         result.setCount(data != null ? data.size() : 0);
         result.setData(data);
+        return result;
+    }
+
+    /**
+     * 构建更新结果
+     */
+    public static MysqlQueryResult updateSuccess(int affectedRows) {
+        MysqlQueryResult result = new MysqlQueryResult();
+        result.setAffectedRows(affectedRows);
+        result.setData(List.of());
         return result;
     }
 

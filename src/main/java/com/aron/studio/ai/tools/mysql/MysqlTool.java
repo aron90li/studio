@@ -1,67 +1,116 @@
 package com.aron.studio.ai.tools.mysql;
 
+import com.aron.studio.ai.config.DbPropertiesConfig;
 import com.aron.studio.ai.dto.MysqlQueryResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
- * MySQL 查询工具 V2 — 使用 Spring AI 2.0 @Tool 注解定义
- * <p>
- * 与旧版 MysqlQueryTool 的区别：
- * <ul>
- *   <li>旧版：实现 AgentTool 接口，在 Workflow 中通过正则解析文本调用</li>
- *   <li>新版：使用 @Tool + @ToolParam 注解，由 Spring AI 框架自动发现和调用</li>
- * </ul>
- * 旧版 MysqlQueryTool 不受影响，两个工具可以共存。
+ * MySQL 工具。每次操作都根据 db.connections 创建独立 JDBC 连接。
  */
 @Slf4j
 @Component
 public class MysqlTool {
 
-    private final JdbcTemplate jdbcTemplate;
+    private final DbPropertiesConfig dbPropertiesConfig;
 
-    public MysqlTool(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    public MysqlTool(DbPropertiesConfig dbPropertiesConfig) {
+        this.dbPropertiesConfig = dbPropertiesConfig;
     }
 
-    /**
-     * 执行 MySQL 查询（仅允许 SELECT/SHOW/DESC）
-     *
-     * @param sql 要执行的 SQL 查询语句
-     * @return JSON 结构化查询结果，格式为 {"count": N, "data": [...]}
-     */
-    @Tool(description = "执行MySQL查询，参数格式：{\"sql\": \"SELECT * FROM user WHERE name = '张三'\"}。"
-            + "可以查询任何数据库表。查询结果以结构化形式返回，包含 count(记录数)、data(数据数组)、error(错误信息)。"
-            + "注意：只允许执行 SELECT 查询，不允许修改数据。")
-    public MysqlQueryResult mysqlQuery(
-            @ToolParam(description = "要执行的 SQL SELECT 查询语句") String sql) {
+    @Tool(description = "列出所有配置的 MySQL 连接。")
+    public List<MysqlConnection> listConnections() {
+        return dbPropertiesConfig.getConnections();
+    }
 
+    @Tool(description = "执行指定 MySQL 连接上的 SELECT 查询，返回 count 和 data。")
+    public MysqlQueryResult mysqlQuery(
+            @ToolParam(description = "连接名称") String connectionName,
+            @ToolParam(description = "要执行的 SQL SELECT 查询语句") String sql) {
+        return execute(connectionName, sql, true);
+    }
+
+    public MysqlQueryResult execute(String connectionName, String sql, boolean queryOnly) {
         if (sql == null || sql.trim().isEmpty()) {
             return MysqlQueryResult.error("缺少 sql 参数");
         }
 
-        // 安全检查：只允许 SELECT / SHOW / DESC / EXPLAIN
-        String trimmedSql = sql.trim().toUpperCase();
-        if (!trimmedSql.startsWith("SELECT")
-                && !trimmedSql.startsWith("SHOW")
-                && !trimmedSql.startsWith("DESC")
-                && !trimmedSql.startsWith("EXPLAIN")) {
+        MysqlConnection connectionConfig = findConnection(connectionName);
+        if (connectionConfig == null) {
+            return MysqlQueryResult.error("未找到数据库连接: " + connectionName);
+        }
+
+        String normalizedSql = normalizeSql(sql);
+        if (normalizedSql.indexOf(';') >= 0) {
+            return MysqlQueryResult.error("不允许执行多条 SQL 语句");
+        }
+
+        String operation = normalizedSql.split("\\s+", 2)[0].toUpperCase(Locale.ROOT);
+        if (queryOnly && !isQueryOperation(operation)) {
             return MysqlQueryResult.error("只允许执行 SELECT / SHOW / DESC / EXPLAIN 查询");
         }
 
-        log.info("MysqlQueryToolV2 执行SQL: {}", sql);
         try {
-            List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
-            return MysqlQueryResult.success(rows);
+            Class.forName(connectionConfig.getDriverClassName());
+            try (Connection connection = DriverManager.getConnection(
+                    connectionConfig.getUrl(), connectionConfig.getUsername(), connectionConfig.getPassword());
+                 Statement statement = connection.createStatement()) {
+                if (isQueryOperation(operation)) {
+                    return MysqlQueryResult.success(readRows(statement.executeQuery(normalizedSql)));
+                }
+                return MysqlQueryResult.updateSuccess(statement.executeUpdate(normalizedSql));
+            }
         } catch (Exception e) {
-            log.error("查询执行失败", e);
-            return MysqlQueryResult.error("查询执行失败: " + e.getMessage());
+            log.error("MySQL 操作执行失败, connectionName={}", connectionName, e);
+            return MysqlQueryResult.error("SQL 执行失败: " + e.getMessage());
+        }
+    }
+
+    private MysqlConnection findConnection(String connectionName) {
+        return dbPropertiesConfig.getConnections().stream()
+                .filter(connection -> connection.getName().equals(connectionName))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String normalizeSql(String sql) {
+        String normalizedSql = sql.trim();
+        if (normalizedSql.endsWith(";")) {
+            normalizedSql = normalizedSql.substring(0, normalizedSql.length() - 1).trim();
+        }
+        return normalizedSql;
+    }
+
+    private boolean isQueryOperation(String operation) {
+        return "SELECT".equals(operation) || "SHOW".equals(operation)
+                || "DESC".equals(operation) || "EXPLAIN".equals(operation);
+    }
+
+    private List<Map<String, Object>> readRows(ResultSet resultSet) throws Exception {
+        try (ResultSet rows = resultSet) {
+            ResultSetMetaData metadata = rows.getMetaData();
+            List<Map<String, Object>> result = new ArrayList<>();
+            while (rows.next()) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                    row.put(metadata.getColumnLabel(i), rows.getObject(i));
+                }
+                result.add(row);
+            }
+            return result;
         }
     }
 }
