@@ -53,12 +53,23 @@ public class MysqlTool {
             return MysqlQueryResult.error("未找到数据库连接: " + connectionName);
         }
 
-        String normalizedSql = normalizeSql(sql);
-        if (normalizedSql.indexOf(';') >= 0) {
+        // 先剔除注释（-- 行注释、/* */ 块注释），仅提取可执行语句
+        String executableSql = extractExecutableSql(sql);
+        if (executableSql.isEmpty()) {
+            return MysqlQueryResult.error("SQL 中不包含任何可执行语句");
+        }
+        // 只把引号（单/双引号字符串）之外的顶层分号视为语句分隔符，
+        // 避免把字段值里出现的分号（如 'a;b'）误判为多条语句
+        if (isMultipleStatements(executableSql)) {
             return MysqlQueryResult.error("不允许执行多条 SQL 语句");
         }
+        // 去掉作为语句末尾的顶层分号后再执行
+        String finalSql = removeTrailingSemicolon(executableSql);
+        if (finalSql.isEmpty()) {
+            return MysqlQueryResult.error("SQL 中不包含任何可执行语句");
+        }
 
-        String operation = normalizedSql.split("\\s+", 2)[0].toUpperCase(Locale.ROOT);
+        String operation = finalSql.split("\\s+", 2)[0].toUpperCase(Locale.ROOT);
         if (queryOnly && !isQueryOperation(operation)) {
             return MysqlQueryResult.error("只允许执行 SELECT / SHOW / DESC / EXPLAIN 查询");
         }
@@ -69,9 +80,11 @@ public class MysqlTool {
                     connectionConfig.getUrl(), connectionConfig.getUsername(), connectionConfig.getPassword());
                  Statement statement = connection.createStatement()) {
                 if (isQueryOperation(operation)) {
-                    return MysqlQueryResult.success(readRows(statement.executeQuery(normalizedSql)));
+                    log.info("执行查询: {}", finalSql);
+                    return MysqlQueryResult.success(readRows(statement.executeQuery(finalSql)));
                 }
-                return MysqlQueryResult.updateSuccess(statement.executeUpdate(normalizedSql));
+                log.info("执行更新: {}", finalSql);
+                return MysqlQueryResult.updateSuccess(statement.executeUpdate(finalSql));
             }
         } catch (Exception e) {
             log.error("MySQL 操作执行失败, connectionName={}", connectionName, e);
@@ -86,12 +99,143 @@ public class MysqlTool {
                 .orElse(null);
     }
 
-    private String normalizeSql(String sql) {
-        String normalizedSql = sql.trim();
-        if (normalizedSql.endsWith(";")) {
-            normalizedSql = normalizedSql.substring(0, normalizedSql.length() - 1).trim();
+    /**
+     * 剔除注释（-- 行注释和星号斜杠块注释）后，提取出可执行语句片段。
+     * 多条语句的判别以及末尾分号的处理，交由后续顶层分号分析方法完成。
+     */
+    private String extractExecutableSql(String sql) {
+        // 1) 先移除块注释 /* ... */
+        String withoutBlockComment = sql.replaceAll("(?s)/\\*.*?\\*/", "");
+
+        // 2) 逐行处理，去掉行注释，并按行拼接剩余有效片段
+        StringBuilder builder = new StringBuilder();
+        for (String line : withoutBlockComment.split("\\R")) {
+            int commentStart = findLineCommentStart(line);
+            String validPart = commentStart >= 0 ? line.substring(0, commentStart) : line;
+            validPart = validPart.trim();
+            if (!validPart.isEmpty()) {
+                builder.append(validPart).append('\n');
+            }
         }
-        return normalizedSql;
+
+        return builder.toString().trim();
+    }
+
+    /**
+     * 返回某一行内行注释 "--" 的起始下标，未找到返回 -1。
+     * 会识别并跳过单双引号字符串，避免把字符串中出现的 "--" 误判为注释。
+     */
+    private int findLineCommentStart(String line) {
+        boolean inSingleQuote = false;
+        boolean inDoubleQuote = false;
+        for (int i = 0; i < line.length() - 1; i++) {
+            char c = line.charAt(i);
+            char next = line.charAt(i + 1);
+
+            if (inSingleQuote) {
+                if (c == '\\') {
+                    i++;
+                } else if (c == '\'') {
+                    inSingleQuote = false;
+                }
+                continue;
+            }
+            if (inDoubleQuote) {
+                if (c == '\\') {
+                    i++;
+                } else if (c == '"') {
+                    inDoubleQuote = false;
+                }
+                continue;
+            }
+
+            if (c == '\'') {
+                inSingleQuote = true;
+            } else if (c == '"') {
+                inDoubleQuote = true;
+            } else if (c == '-' && next == '-') {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * 统计引号（单 / 双引号字符串）之外的顶层分号位置。
+     * SQL 字符串字段值中出现分号时不会被计入，避免误判成多条语句。
+     */
+    private List<Integer> topLevelSemicolonIndexes(String sql) {
+        List<Integer> indexes = new ArrayList<>();
+        boolean inSingleQuote = false;
+        boolean inDoubleQuote = false;
+        for (int i = 0; i < sql.length(); i++) {
+            char c = sql.charAt(i);
+            if (inSingleQuote) {
+                if (c == '\\') {
+                    i++;
+                } else if (c == '\'') {
+                    inSingleQuote = false;
+                }
+                continue;
+            }
+            if (inDoubleQuote) {
+                if (c == '\\') {
+                    i++;
+                } else if (c == '"') {
+                    inDoubleQuote = false;
+                }
+                continue;
+            }
+            if (c == '\'') {
+                inSingleQuote = true;
+            } else if (c == '"') {
+                inDoubleQuote = true;
+            } else if (c == ';') {
+                indexes.add(i);
+            }
+        }
+        return indexes;
+    }
+
+    /**
+     * 判断是否为多条 SQL 语句（基于引号之外的顶层分号）。
+     */
+    private boolean isMultipleStatements(String sql) {
+        List<Integer> indexes = topLevelSemicolonIndexes(sql);
+        if (indexes.isEmpty()) {
+            return false;
+        }
+        int lastTop = indexes.get(indexes.size() - 1);
+        if (onlyWhitespaceAfter(sql, lastTop)) {
+            // 末尾分号只是语句结束符，去掉后若前面还有其他顶层分号则代表多条
+            return indexes.size() > 1;
+        }
+        // 最后一个顶层分号后面还有内容，说明不止一条语句
+        return true;
+    }
+
+    /**
+     * 去掉末尾作为语句结束符的顶层分号。
+     */
+    private String removeTrailingSemicolon(String sql) {
+        List<Integer> indexes = topLevelSemicolonIndexes(sql);
+        if (indexes.isEmpty()) {
+            return sql;
+        }
+        int lastTop = indexes.get(indexes.size() - 1);
+        if (onlyWhitespaceAfter(sql, lastTop)) {
+            return sql.substring(0, lastTop).trim();
+        }
+        return sql;
+    }
+
+    private boolean onlyWhitespaceAfter(String sql, int fromExclusive) {
+        for (int i = fromExclusive + 1; i < sql.length(); i++) {
+            if (!Character.isWhitespace(sql.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean isQueryOperation(String operation) {
